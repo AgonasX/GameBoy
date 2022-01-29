@@ -12,21 +12,15 @@ Bus::~Bus()
 void Bus::loadCartridge(const std::shared_ptr<Cartridge> cartridge)
 {
 	this->cart = cartridge;
-	std::cout << "LOOOAD cart" << std::endl;
-	std::cout << cart << std::endl;
-	
 }
 
 uint8_t Bus::cpuRead(uint16_t address)
 {
 	uint8_t data = 0x00;
-	//std::cout << "cart null?" << std::endl;
-	//std::cout << cart << std::endl;
-
 	//Cartridge
-	//if (0x0000 <= address && address <= 0x3FFF)
+	if (0x0000 <= address && address <= 0x3FFF)
 		data = cart->cpuRead(address);
-	/*
+
 	if (0xA000 <= address && address <= 0xBFFF)
 		data = cart->cpuRead(address);
 
@@ -45,16 +39,15 @@ uint8_t Bus::cpuRead(uint16_t address)
 	//Interrupt flag register
 	if (address == 0xFF0F)
 		data = cpu.IF;
-		*/
+
 	return data;
 }
 bool Bus::cpuWrite(uint16_t address, uint8_t data)
 {
 	//Cartridge
-	//if (0x0000 <= address && address <= 0x3FFF)
+	if (0x0000 <= address && address <= 0x3FFF)
 		cart->cpuWrite(address, data);
 
-	/*
 	if (0xA000 <= address && address <= 0xBFFF)
 		cart->cpuWrite(address, data);
 
@@ -73,7 +66,6 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 	//Interrupt flag register
 	if (address == 0xFF0F)
 		cpu.IF = data;
-		*/
 	return true;
 }
 

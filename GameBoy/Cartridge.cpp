@@ -1,7 +1,7 @@
 #include "Cartridge.h"
 
 //Load program memory and set the PGRMemory and RAM appropiately 
-Cartridge::Cartridge(std::string fileName)
+Cartridge::Cartridge(std::string& fileName)
 {
 	vPGRMemory = std::make_shared <std::vector<uint8_t >>();
 	vRAM = std::make_shared <std::vector<uint8_t >>();
@@ -10,22 +10,16 @@ Cartridge::Cartridge(std::string fileName)
 	std::ifstream inFile(fileName.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
 	if (inFile.is_open())
 	{
-		size = inFile.tellg();
+		inFile.tellg();
 		vPGRMemory->resize(size);
 		inFile.seekg(0, std::ios::beg);
 		inFile.read((char*)vPGRMemory->data(), size);
-
-		
 
 		//Get RAM size and cartridge type
 		RAMsize = vPGRMemory->at(0x0149);
 		cartridgeType = vPGRMemory->at(0x0147);
 
-		std::cout << "SIZE: " << size << std::endl;
-		std::cout << "RAM SIZE: " << RAMsize << std::endl;
-
 		vRAM->resize(RAMsize); 
-
 	}
 	else
 		std::cout << "Error: could not open file: " << fileName.c_str() << std::endl;
@@ -39,7 +33,7 @@ Cartridge::Cartridge(std::string fileName)
 		pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM);
 	}
 
-	pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM); //Always no MBC for testing 
+
 }
 
 	Cartridge::~Cartridge()

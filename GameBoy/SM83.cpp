@@ -141,8 +141,6 @@ void SM83::clock()
 
 		opcode = read(pc);
 
-		std::cout << "program counter: " << (std::hex) << " 0x" << (int)pc << std::endl;
-
 		//If the opcode is prefixed by CB, the opcode is in a different bank of instructions
 		if (opcode == 0xCB)
 		{
@@ -200,12 +198,6 @@ void SM83::operate(uint8_t opcode)
 	X = (opcode & 0xC0) >> 6;
 	Q = (opcode & (0x01 << 3)) >> 3;
 	P = (opcode & 0x30) >> 4;
-
-	std::cout << "Opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
-	std::cout << "SP:" << (std::hex) << " 0x" << (int)sp << std::endl;
-	//std::cout << "x = " << (std::hex) << " 0x" << (int)X << std::endl;
-	//std::cout << "Y = " << (std::hex) << " 0x" << (int)Y << std::endl;
-	//std::cout << "Z = " << (std::hex) << " 0x" << (int)Z << std::endl;
 
 	switch (X)
 	{
@@ -454,13 +446,13 @@ void SM83::operate(uint8_t opcode)
 		case 0: //x=3,z=0
 			if (Y < 4)
 				cycles += RETcc(Y);
+			break;
 			switch (Y)
 			{
 			case 4:
-				std::cout << "AAAAAAAAAAAAAAAAAAAAAA" << std::endl;
-				n8 = read(pc);
-				pc++;
-				cycles += LDHbn16nA(n8);
+				n16 = (read(pc + 1) << 8) | read(pc);
+				pc += 2;
+				cycles += LDHbn16nA(n16);
 				break;
 			case 5:
 				e8 = read(pc);
@@ -468,9 +460,9 @@ void SM83::operate(uint8_t opcode)
 				cycles += ADDSPe8(e8);
 				break;
 			case 6:
-				n8 = read(pc);
-				pc++;
-				cycles += LDHAbn16b(n8);
+				n16 = (read(pc + 1) << 8) | read(pc);
+				pc += 2;
+				cycles += LDHAbn16b(n16);
 				break;
 			case 7:
 				e8 = read(pc);
@@ -479,7 +471,6 @@ void SM83::operate(uint8_t opcode)
 				break;
 			}
 			break;
-
 
 		case 1: //x=3, z=1
 			switch (Q)
@@ -510,10 +501,7 @@ void SM83::operate(uint8_t opcode)
 			n16 = (read(pc + 1) << 8) | read(pc);
 			pc += 2;
 			if (Y < 4)
-			{
-				std::cout << "AAAAAAAAAA" << std::endl;
 				cycles += JPccn16(n16, Y);
-			}
 			switch (Y)
 			{
 			case 4:
@@ -532,12 +520,11 @@ void SM83::operate(uint8_t opcode)
 			break;
 
 		case 3: //x=3, z=3
+			n16 = (read(pc + 1) << 8) | read(pc);
+			pc += 2;
 			switch (Y)
 			{
 			case 0:
-				n16 = (read(pc + 1) << 8) | read(pc);
-				std::cout << "Jump Adress = " << (std::hex) << " 0x" << (int)n16 << std::endl;
-				pc += 2;
 				cycles += JPn16(n16);
 				break;
 			case 6:
@@ -562,14 +549,7 @@ void SM83::operate(uint8_t opcode)
 			switch (Q)
 			{
 			case 0:
-				std::cout << "Stack pointer = " << (std::hex) << " 0x" << (int)sp << std::endl;
-				std::cout << "Stack 1 = " << (std::hex) << " 0x" << (int)read(sp - 1) << std::endl;
-				std::cout << "Stack 2 = " << (std::hex) << " 0x" << (int)read(sp - 2) << std::endl;
-				cycles += PUSHr16(*rp2[P]["H"], *rp2[P]["L"]);
-				std::cout << "Register H = " << (std::hex) << " 0x" << (int)H << std::endl;
-				std::cout << "Register L = " << (std::hex) << " 0x" << (int)L << std::endl;
-				std::cout << "Stack 1 = " << (std::hex) << " 0x" << (int)read(sp) << std::endl;
-				std::cout << "Stack 2 = " << (std::hex) << " 0x" << (int)read(sp + 1) << std::endl;
+				PUSHr16(*rp2[P]["H"], *rp2[P]["L"]);
 				break;
 			case 1:
 				if (P == 0)
@@ -614,11 +594,9 @@ void SM83::operate(uint8_t opcode)
 			cycles += RSTvec(Y);
 			break;
 		}
-		break;
 
 		default:
-			std::cout << "Illegal opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
-			break;
+			std::cout << "Illegal opcode" << std::endl;
 	}
 }
 
@@ -710,8 +688,7 @@ void SM83::operatePrefix(uint8_t opcode)
 		break;
 
 	default:
-		std::cout << "Illegal opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
-		break;
+		std::cout << "Illegal opcode" << std::endl;
 	}
 
 }
@@ -780,9 +757,9 @@ int SM83::LDbn16bA(uint16_t& n)
 }
 
 //Store value in register A into the byte at address n16, provided the address is between $FF00 and $FFFF.
-int SM83::LDHbn16nA(uint8_t& n)
+int SM83::LDHbn16nA(uint16_t& n)
 {
-	write(0xFF00 + n, A);
+	if (0xFF00 >= n && n <= 0xFFFF) write(n, A);
 	return 3;
 }
 
@@ -808,9 +785,9 @@ int SM83::LDAbn16b(uint16_t& n)
 }
 
 //Load value in register A from the byte at address n16, provided the address is between $FF00 and $FFFF.
-int SM83::LDHAbn16b(uint8_t& n)
+int SM83::LDHAbn16b(uint16_t& n)
 {
-	A = read(0xFF00 + n);
+	if(0xFF00 >= n && n <=0xFFFF) A = read(n);
 	return 3;
 }
 
@@ -1501,10 +1478,6 @@ int SM83::CALLn16(uint16_t& n16)
 	sp--;
 	write(sp, pc & 0x00FF); 
 	pc = n16;
-
-	std::cout << "StackLow:" << (std::hex) << " 0x" << (int)read(sp) << std::endl;
-	std::cout << "StackHigh:" << (std::hex) << " 0x" << (int)read(sp + 1) << std::endl;
-
 	return 6;
 }
 
@@ -1584,42 +1557,31 @@ int SM83::JRcce8(int8_t e8, uint8_t &y)
 	case 0:
 		if (getFlag(z) == 0)
 		{
-			std::cout << "AAAAAAAAAAAAAA" << std::endl;
 			pc += e8;
 			return 3;
 		}
-		else 
-			return 2;
-		break;
+		else return 2;
 	case 1:
 		if (getFlag(z) == 1)
 		{
 			pc += e8;
 			return 3;
 		}
-		else 
-			return 2;
-		break;
+		else return 2;
 	case 2:
 		if (getFlag(c) == 0)
 		{
 			pc += e8;
 			return 3;
 		}
-		else 
-			return 2;
-		break;
+		else return 2;
 	case 3:
 		if (getFlag(c) == 1)
 		{
 			pc += e8;
 			return 3;
 		}
-		else
-			return 2;
-		break;
-	default:
-		break;
+		else return 2;
 	}
 }
 
@@ -1639,35 +1601,30 @@ int SM83::JPccn16(uint16_t& n16, uint8_t& y)
 		if (getFlag(z) == 0)
 		{
 			pc = n16;
-			std::cout << "Jump Adress = " << (std::hex) << " 0x" << (int)n16 << std::endl;
 			return 4;
 		}
-		else 
-			return 3;
+		else return 3;
 	case 1:
 		if (getFlag(z) == 1)
 		{
 			pc = n16;
 			return 4;
 		}
-		else
-			return 3;
+		else return 3;
 	case 2:
 		if (getFlag(c) == 0)
 		{
 			pc = n16;
 			return 4;
 		}
-		else 
-			return 3;
+		else return 3;
 	case 3:
 		if (getFlag(c) == 1)
 		{
 			pc = n16;
 			return 4;
 		}
-		else 
-			return 3;
+		else return 3;
 	}
 }
 
