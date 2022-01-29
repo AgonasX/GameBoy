@@ -4,7 +4,7 @@ class MBC_0 :
     public MBC
 {
 public:
-    MBC_0(const std::shared_ptr<std::vector<uint8_t>> pPGRMemory, const std::shared_ptr<std::vector<uint8_t>> pRAM);
+    MBC_0(std::shared_ptr<std::vector<uint8_t>> pPGRMemory, std::shared_ptr<std::vector<uint8_t>> pRAM);
     ~MBC_0();
 
 public:
