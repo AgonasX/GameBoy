@@ -27,7 +27,7 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("cpu_instrs.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/cpu_instrs.gb");
 		GB.loadCartridge(cartridge);
 
 		return true;
