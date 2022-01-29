@@ -11,7 +11,7 @@
 class Cartridge
 {
 public:
-	Cartridge(std::string& fileName);
+	Cartridge(std::string fileName);
 	~Cartridge();
 	
 private:

@@ -111,11 +111,11 @@ private:
 	int LDr8bHLb(uint8_t& r); //LD r8,[HL]
 	int LDbr16bA(uint16_t& r); //LD [r16],A
 	int LDbn16bA(uint16_t& n); //LD [n16],A
-	int LDHbn16nA(uint16_t& n); //LDH [n16],A
+	int LDHbn16nA(uint8_t& n); //LDH [n16],A
 	int LDHbCbA(); //LDH [C],A
 	int LDAbr16b(uint16_t& r); //LD A,[r16]
 	int LDAbn16b(uint16_t& n); //LD A,[n16]
-	int LDHAbn16b(uint16_t& n); //LDH A,[n16]
+	int LDHAbn16b(uint8_t& n); //LDH A,[n16]
 	int LDHAbCb(); //LDH A,[C]
 	int LDbHLIbA(); //LD [HLI],A
 	int LDbHLDbA(); //LD [HLD],A
