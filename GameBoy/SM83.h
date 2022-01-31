@@ -1,5 +1,7 @@
 #pragma once
 
+#define DEBUG
+
 #include <cstdint>
 #include <vector>
 #include <map>
@@ -58,7 +60,7 @@ public:
 		bool complete(); //Helper function
 
 
-private:
+public:
 	//Flags
 	enum FLAGS
 	{
@@ -74,17 +76,18 @@ private:
 	void setFlag(FLAGS f, bool v);
 	uint8_t getFlag(FLAGS f);
 
-private:
+public:
 	//Linkage to communication bus
 	Bus* bus = nullptr;
 	uint8_t read(uint16_t address);
 	void write(uint16_t address, uint8_t data);
 
-private:
+public:
 	//Variables and functions to facilitate emulation
 	uint8_t opcode = 0x00;
 	int cycles = 0;
 
+private:
 	//For opcode decoding
 	uint8_t Y = 0x00;
 	uint8_t X = 0x00;
@@ -93,7 +96,7 @@ private:
 	uint8_t Q = 0x00;
 	uint8_t n8 = 0x00;
 	uint16_t n16 = 0x0000;
-	uint8_t e8 = 0x00;
+	int8_t e8 = 0x00;
 
 	bool irqFlag = false; //Flag for interupt request. This is to know if interrupts have been requested
 
@@ -223,8 +226,15 @@ private:
 	int SCF();
 	void HALT(); //HALT
 	//Missing HALT
-};
 
+#ifdef DEBUG
+	public:
+		//Disassembler
+		std::map<uint8_t, std::string> instrMap;
+		void initializeInstrMap();
+#endif // DEBUG
+
+};
 
 
 	

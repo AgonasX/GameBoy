@@ -26,8 +26,8 @@ uint8_t Bus::cpuRead(uint16_t address)
 	//Cartridge
 	//if (0x0000 <= address && address <= 0x3FFF)
 		data = cart->cpuRead(address);
-	/*
-	if (0xA000 <= address && address <= 0xBFFF)
+	
+	if (0xA000 <= address && address <= 0xBFFF) //Cartridge RAM
 		data = cart->cpuRead(address);
 
 	//PPU VRAM and OPM
@@ -36,30 +36,37 @@ uint8_t Bus::cpuRead(uint16_t address)
 
 	//WRAM
 	if (0xC000 <= address && address <= 0xFDFF)
-		data = WRAM.at((address & 0xDFFF) - 0xC000); //0xE000 to 0xFDFF mirrors 0xC000 to 0xDFFF
-
+		data = WRAM.at((address - 0xC000) & 0x1FFF); //0xE000 to 0xFDFF mirrors 0xC000 to 0xDFFF
+	
 	//Interrupt enabler register
 	if (address == 0xFFFF)
 		data = cpu.IE;
 	
+	
 	//Interrupt flag register
 	if (address == 0xFF0F)
 		data = cpu.IF;
-		*/
+		
 	return data;
 }
 bool Bus::cpuWrite(uint16_t address, uint8_t data)
 {
 	//Cartridge
-	//if (0x0000 <= address && address <= 0x3FFF)
+	if (0x0000 <= address && address <= 0x3FFF)
 		cart->cpuWrite(address, data);
 
-	/*
+	
 	if (0xA000 <= address && address <= 0xBFFF)
 		cart->cpuWrite(address, data);
 
 	//PPU VRAM and OPM
 	if (0x8000 <= address && address <= 0x9FFF)
+		ppu.cpuWrite(address, data);
+
+	//PPU registers:
+	
+	//Palett registers
+	if (address == 0xFF47) //BG palett data
 		ppu.cpuWrite(address, data);
 
 	//WRAM
@@ -73,8 +80,15 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 	//Interrupt flag register
 	if (address == 0xFF0F)
 		cpu.IF = data;
-		*/
+		
 	return true;
+}
+
+//Clock the CPU and PPU 
+void Bus::clock()
+{
+	cpu.clock();
+	ppu.clock();
 }
 
 

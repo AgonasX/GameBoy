@@ -1,6 +1,6 @@
 #include "Cartridge.h"
 
-//Load program memory and set the PGRMemory and RAM appropiately 
+//Load program memory and resize PGRMemory and RAM appropiately 
 Cartridge::Cartridge(std::string fileName)
 {
 	vPGRMemory = std::make_shared <std::vector<uint8_t >>();
@@ -21,8 +21,8 @@ Cartridge::Cartridge(std::string fileName)
 		RAMsize = vPGRMemory->at(0x0149);
 		cartridgeType = vPGRMemory->at(0x0147);
 
-		std::cout << "SIZE: " << size << std::endl;
-		std::cout << "RAM SIZE: " << RAMsize << std::endl;
+		//std::cout << "SIZE: " << size << std::endl;
+		//std::cout << "RAM SIZE: " << RAMsize << std::endl;
 
 		vRAM->resize(RAMsize); 
 

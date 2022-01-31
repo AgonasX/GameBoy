@@ -1,6 +1,8 @@
 #include "SM83.h"
 #include "Bus.h"
 
+
+
 //Constructor and deconstrctor
 SM83::SM83()
 {
@@ -141,7 +143,9 @@ void SM83::clock()
 
 		opcode = read(pc);
 
-		std::cout << "program counter: " << (std::hex) << " 0x" << (int)pc << std::endl;
+		//std::cout << "program counter: " << (std::hex) << " 0x" << (int)pc << std::endl;
+		//std::cout << "A = " << (std::hex) << " 0x" << (int)A << std::endl;
+
 
 		//If the opcode is prefixed by CB, the opcode is in a different bank of instructions
 		if (opcode == 0xCB)
@@ -149,11 +153,13 @@ void SM83::clock()
 			pc++;
 			opcode = read(pc);
 			operatePrefix(opcode);
+			std::cout << "PREFIX!!!" << std::endl;
+			std::cout <<"opcode: " << (std::hex) << " 0x" << (int)opcode << std::endl;
 		}
 		else
 			operate(opcode);
 
-		cycles *= 4;
+		cycles *= 4; //Get T-cycles from M-cycles
 
 		cycles--; //Decrement one cycle
 	}
@@ -201,8 +207,8 @@ void SM83::operate(uint8_t opcode)
 	Q = (opcode & (0x01 << 3)) >> 3;
 	P = (opcode & 0x30) >> 4;
 
-	std::cout << "Opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
-	std::cout << "SP:" << (std::hex) << " 0x" << (int)sp << std::endl;
+	//std::cout << "Opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
+	//std::cout << "SP:" << (std::hex) << " 0x" << (int)sp << std::endl;
 	//std::cout << "x = " << (std::hex) << " 0x" << (int)X << std::endl;
 	//std::cout << "Y = " << (std::hex) << " 0x" << (int)Y << std::endl;
 	//std::cout << "Z = " << (std::hex) << " 0x" << (int)Z << std::endl;
@@ -248,6 +254,7 @@ void SM83::operate(uint8_t opcode)
 				if (P < 3) {
 					n16 = (read(pc + 1) << 8) | read(pc);
 					pc += 2;
+					//std::cout << (std::hex) <<"n16: " << "0x" << (int)n16 << std::endl;
 					cycles += LDr16n16(*rp[P]["L"], *rp[P]["H"], n16);
 
 				}
@@ -457,7 +464,6 @@ void SM83::operate(uint8_t opcode)
 			switch (Y)
 			{
 			case 4:
-				std::cout << "AAAAAAAAAAAAAAAAAAAAAA" << std::endl;
 				n8 = read(pc);
 				pc++;
 				cycles += LDHbn16nA(n8);
@@ -511,7 +517,6 @@ void SM83::operate(uint8_t opcode)
 			pc += 2;
 			if (Y < 4)
 			{
-				std::cout << "AAAAAAAAAA" << std::endl;
 				cycles += JPccn16(n16, Y);
 			}
 			switch (Y)
@@ -536,7 +541,7 @@ void SM83::operate(uint8_t opcode)
 			{
 			case 0:
 				n16 = (read(pc + 1) << 8) | read(pc);
-				std::cout << "Jump Adress = " << (std::hex) << " 0x" << (int)n16 << std::endl;
+				//std::cout << "Jump Adress = " << (std::hex) << " 0x" << (int)n16 << std::endl;
 				pc += 2;
 				cycles += JPn16(n16);
 				break;
@@ -562,14 +567,7 @@ void SM83::operate(uint8_t opcode)
 			switch (Q)
 			{
 			case 0:
-				std::cout << "Stack pointer = " << (std::hex) << " 0x" << (int)sp << std::endl;
-				std::cout << "Stack 1 = " << (std::hex) << " 0x" << (int)read(sp - 1) << std::endl;
-				std::cout << "Stack 2 = " << (std::hex) << " 0x" << (int)read(sp - 2) << std::endl;
 				cycles += PUSHr16(*rp2[P]["H"], *rp2[P]["L"]);
-				std::cout << "Register H = " << (std::hex) << " 0x" << (int)H << std::endl;
-				std::cout << "Register L = " << (std::hex) << " 0x" << (int)L << std::endl;
-				std::cout << "Stack 1 = " << (std::hex) << " 0x" << (int)read(sp) << std::endl;
-				std::cout << "Stack 2 = " << (std::hex) << " 0x" << (int)read(sp + 1) << std::endl;
 				break;
 			case 1:
 				if (P == 0)
@@ -768,7 +766,7 @@ int SM83::LDr8bHLb(uint8_t& r)
 //Store value in register A into the byte pointed to by register r16.
 int SM83::LDbr16bA(uint16_t& r)
 {
-	A = read(r);
+	write(r, A);
 	return 2;
 }
 
@@ -867,10 +865,16 @@ int SM83::LDAabHLIb()
 int SM83::ADCAr8(uint8_t& r)
 {
 	if ((A & 0x0F) > (0xF - ((r + getFlag(c)) & 0x0F))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if(A > (0xFF - (r + getFlag(c)))) setFlag(c,1);
+	else setFlag(c, 0);
+
 	setFlag(n, 0);
+
 	A += (r + getFlag(c));
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 1;
 }
 
@@ -879,10 +883,16 @@ int SM83::ADCAbHLb()
 {
 	HL = (H << 8) | L;
 	if ((A & 0x0F) > (0xF - ((read(HL) + getFlag(c)) & 0x0F))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A > (0xFF - (read(HL) + getFlag(c)))) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	setFlag(n, 0);
 	A += (read(HL) + getFlag(c));
+
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 2;
 }
 
@@ -890,10 +900,14 @@ int SM83::ADCAbHLb()
 int SM83::ADCAn8(uint8_t& n8)
 {
 	if ((A & 0x0F) > (0xF - ((n8 + getFlag(c)) & 0x0F))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A > (0xFF - (n8 + getFlag(c)))) setFlag(c, 1);
+	else setFlag(c, 0);
 	setFlag(n, 0);
 	A += (n + getFlag(c));
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 2;
 }
 
@@ -901,10 +915,15 @@ int SM83::ADCAn8(uint8_t& n8)
 int SM83::ADDAr8(uint8_t& r)
 {
 	if ((A & 0x0F) > (0xF - (r & 0x0F))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A > (0xFF - r)) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	setFlag(n, 0);
 	A += r;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 1;
 }
 
@@ -913,10 +932,15 @@ int SM83::ADDAbHLb()
 {
 	HL = (H << 8) | L;
 	if ((A & 0x0F) > (0xF - (read(HL) & 0x0F))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A > (0xFF - read(HL))) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	setFlag(n, 0);
 	A += read(HL);
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
  	return 2;
 }
 
@@ -924,10 +948,14 @@ int SM83::ADDAbHLb()
 int SM83::ADDAn8(uint8_t& n8)
 {
 	if ((A & 0x0F) > (0xF - (n8 & 0x0F))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A > (0xFF - n8)) setFlag(c, 1);
+	else setFlag(c, 0);
 	setFlag(n, 0);
 	A += n8;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 2;
 }
 
@@ -938,6 +966,7 @@ int SM83::ANDAr8(uint8_t& r)
 	setFlag(n, 0);
 	A = A & r;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 1;
 }
 
@@ -949,6 +978,7 @@ int SM83::ANDAbHLB()
 	setFlag(n, 0);
 	A = A & read(HL);
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 2;
 }
 
@@ -959,6 +989,7 @@ int SM83::ANDAn8(uint8_t& n8)
 	setFlag(n, 0);
 	A = A & n8;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 2;
 }
 
@@ -966,9 +997,14 @@ int SM83::ANDAn8(uint8_t& n8)
 int SM83::CPAr8(uint8_t& r)
 {
 	if ((A - r) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
+
 	if((A & 0x0F) < (r & 0x0F)) setFlag(h,1);
+	else setFlag(h, 0);
+
 	if (A < r) setFlag(c, 1);
+	else setFlag(c, 0);
 	return 1;
 }
 
@@ -977,9 +1013,14 @@ int SM83::CPAbHLb()
 {
 	HL = (H << 8) | L;
 	if ((A - read(HL)) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
+
 	setFlag(n, 1);
 	if ((A & 0x0F) < (read(HL) & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A < read(HL)) setFlag(c, 1);
+	else setFlag(c, 0);
 	return 2;
 }
 
@@ -987,9 +1028,14 @@ int SM83::CPAbHLb()
 int SM83::CPAn8(uint8_t& n8)
 {
 	if ((A - n8) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
+
 	setFlag(n, 1);
 	if ((A & 0x0F) < (n8 & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	if (A < n8) setFlag(c, 1);
+	else setFlag(c, 0);
 	return 2;
 }
 
@@ -997,9 +1043,12 @@ int SM83::CPAn8(uint8_t& n8)
 int SM83::DECr8(uint8_t& r)
 {
 	if ((r & 0x0F) < 0x01) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	setFlag(n, 1);
 	r--;
-	if (r == 0x00) setFlag(z, 0);
+	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	return 1;
 }
 
@@ -1008,8 +1057,11 @@ int SM83::DECbHLb()
 {
 	HL = (H << 8) | L;
 	if ((read(HL) & 0x0F) < 0x01) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	setFlag(n, 1);
-	if (read(HL) - 1 == 0x00) setFlag(z, 0);
+	if (read(HL) - 1 == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	write(HL, read(HL) - 1);
 	return 3;
 }
@@ -1017,9 +1069,15 @@ int SM83::DECbHLb()
 int SM83::INCr8(uint8_t& r)
 {
 	if ((r & 0x0F) > (0xF - 0x01)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	setFlag(n, 0);
 	r++;
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
+
+	//std::cout << (std::hex) << "0x" << (int)r << std::endl;
+
 	return 1;
 }
 
@@ -1028,8 +1086,11 @@ int SM83::INCbHLb()
 {
 	HL = (H << 8) | L;
 	if ((read(HL) & 0x0F) > (0xF - 0x01)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	setFlag(n, 0);
 	if((read(HL) + 1) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	write(HL, read(HL) + 1);
 	return 3;
 }
@@ -1039,6 +1100,7 @@ int SM83::ORAr8(uint8_t& r)
 {
 	A = A | r;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1051,6 +1113,7 @@ int SM83::ORAbHLb()
 	HL = (H << 8) | L;
 	A = A | read(HL);
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1062,6 +1125,7 @@ int SM83::ORAn8(uint8_t n8)
 {
 	A = A | n8;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1072,9 +1136,13 @@ int SM83::ORAn8(uint8_t n8)
 int SM83::SBCAr8(uint8_t& r)
 {
 	if(A < (r + getFlag(c))) setFlag(c,1);
+	else setFlag(c, 0);
+
 	if((A & 0x0F) < ((r + getFlag(c)) & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
 	A -= (r + getFlag(c));
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
 	return 1;
 }
@@ -1083,9 +1151,14 @@ int SM83::SBCAbHLb()
 {
 	HL = (H << 8) | L;
 	if (A < (read(HL) + getFlag(c))) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if ((A & 0x0F) < ((read(HL) + getFlag(c)) & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	A -= (read(HL) + getFlag(c));
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
 	return 2;
 }
@@ -1094,9 +1167,14 @@ int SM83::SBCAbHLb()
 int SM83::SBCAn8(uint8_t n8)
 {
 	if (A < (n8 + getFlag(c))) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if ((A & 0x0F) < ((n8 + getFlag(c)) & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	A -= (n8 + getFlag(c));
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
 	return 2;
 }
@@ -1105,9 +1183,14 @@ int SM83::SBCAn8(uint8_t n8)
 int SM83::SUBAr8(uint8_t& r)
 {
 	if (A < r) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if((A & 0x0F) < (r & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	A -= r;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
 	return 1;
 }
@@ -1117,9 +1200,14 @@ int SM83::SUBAbHLb()
 {
 	HL = (H << 8) | L;
 	if (A < read(HL)) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if ((A & 0x0F) < (read(HL) & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	A -= read(HL);
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
 	return 2;
 }
@@ -1128,9 +1216,14 @@ int SM83::SUBAbHLb()
 int SM83::SUBAn8(uint8_t n8)
 {
 	if (A < n8) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if ((A & 0x0F) < (n8 & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	A -= n8;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 1);
 	return 2;
 }
@@ -1140,6 +1233,7 @@ int SM83::XORAr8(uint8_t& r)
 {
 	A = A ^ r;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1152,6 +1246,7 @@ int SM83::XORAbHLb()
 	HL = (H << 8) | L;
 	A = A ^ read(HL);
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1163,6 +1258,7 @@ int SM83::XORAn8(uint8_t n8)
 {
 	A = A ^ n8;
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1177,7 +1273,11 @@ int SM83::ADDHLr16(uint16_t& r)
 {
 	HL = (H << 8) | L;
 	if (HL > (0xFFFF - r)) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if ((HL & 0x0FFF) > (0x0FFF - (r & 0x0FFF))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	setFlag(n, 0);
 	HL += r;
 	H = (HL & 0xFF00) >> 8;
@@ -1207,7 +1307,8 @@ int SM83::INCr16(uint8_t& Hr, uint8_t& Lr)
 //Test bit u3 in register r8, set the zero flag if bit not set.
 int SM83::BITu3r8(uint8_t& u3, uint8_t& r)
 {
-	if ((r & (0x1 << u3)) == 0) setFlag(z, 0);
+	if ((r & (0x1 << u3)) == 0) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(h, 1);
 	setFlag(n, 0);
 	return 2;
@@ -1216,7 +1317,8 @@ int SM83::BITu3r8(uint8_t& u3, uint8_t& r)
 int SM83::BITu3bHLb(uint8_t& u3)
 {
 	HL = (H << 8) | L;
-	if ((read(HL) & (0x1 << u3)) == 0) setFlag(z, 0);
+	if ((read(HL) & (0x1 << u3)) == 0) setFlag(z, 1);
+	else setFlag(h, 0);
 	setFlag(h, 1);
 	setFlag(n, 0);
 	return 3;
@@ -1239,6 +1341,7 @@ int SM83::RESu3bHLb(uint8_t& u3)
 int SM83::SETu3r8(uint8_t& u3, uint8_t& r)
 {
 	r = r | (0x1 << u3);
+	std::cout << "ASD!!!"<< std::endl;
 	return 2;
 }
 
@@ -1255,6 +1358,7 @@ int SM83::SWAPr8(uint8_t& r)
 	
 	r = ((r & 0x0F) << 4) | ((r & 0xF0) >> 4);
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1267,6 +1371,7 @@ int SM83::SWAPbHLb()
 	HL = (H << 8) | L;
 	write(HL, ((read(HL) & 0x0F) << 4) | ((read(HL) & 0xF0) >> 4));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	setFlag(c, 0);
@@ -1283,6 +1388,7 @@ int SM83::RLr8(uint8_t& r)
 	r = r << 1;
 	r = r | lowestBit;
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1296,6 +1402,7 @@ int SM83::RLbHLb()
 	setFlag(c, (read(HL) & 0x80) >> 7);
 	write(HL,(read(HL) << 1) | lowestBit);
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1320,6 +1427,7 @@ int SM83::RLCr8(uint8_t& r)
 	setFlag(c, (r & 0x80) >> 7);
 	r = (r << 1) | (r >> 7);
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1332,6 +1440,7 @@ int SM83::RLCbHLb()
 	setFlag(c, (read(HL) & 0x80) >> 7);
 	write(HL,(read(HL) << 1) | (read(HL) >> 7));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1343,6 +1452,7 @@ int SM83::RLCA()
 	setFlag(c, (A & 0x80) >> 7);
 	A = (A << 1) | (A >> 7);
 	if (A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 1;
@@ -1356,6 +1466,7 @@ int SM83::RRr8(uint8_t& r)
 	r = r >> 1;
 	r = r | (highestBit << 7);
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1369,6 +1480,7 @@ int SM83::RRbHLb()
 	setFlag(c, read(HL) & 0x01);
 	write(HL, (read(HL) >> 1) | (highestBit << 7));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1393,6 +1505,7 @@ int SM83::RRCr8(uint8_t& r)
 	setFlag(c, r & 0x01);
 	r = (r >> 1) | (r << 7);
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1405,6 +1518,7 @@ int SM83::RRCbHLb()
 	setFlag(c, read(HL) & 0x01);
 	write(HL, (read(HL) >> 1) | (read(HL) << 7));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1427,6 +1541,7 @@ int SM83::SLAr8(uint8_t& r)
 	setFlag(c, (r & 0x80) >> 7);
 	r = (r << 1);
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1439,6 +1554,7 @@ int SM83::SLAbHLb()
 	setFlag(c, (read(HL) & 0x80) >> 7);
 	write(HL, (read(HL) << 1));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1450,6 +1566,7 @@ int SM83::SRAr8(uint8_t& r)
 	setFlag(c, r & 0x01);
 	r = (r >> 1) | (r & 0x80);
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1462,6 +1579,7 @@ int SM83::SRAbHLb()
 	setFlag(c, read(HL) & 0x01);
 	write(HL,(read(HL) >> 1) | (read(HL) & 0x80));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1473,6 +1591,7 @@ int SM83::SRLr8(uint8_t& r)
 	setFlag(c, r & 0x01);
 	r = (r >> 1); 
 	if (r == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 2;
@@ -1485,6 +1604,7 @@ int SM83::SRLbHLb()
 	setFlag(c, read(HL) & 0x01);
 	write(HL, (read(HL) >> 1));
 	if (read(HL) == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(n, 0);
 	setFlag(h, 0);
 	return 4;
@@ -1501,9 +1621,6 @@ int SM83::CALLn16(uint16_t& n16)
 	sp--;
 	write(sp, pc & 0x00FF); 
 	pc = n16;
-
-	std::cout << "StackLow:" << (std::hex) << " 0x" << (int)read(sp) << std::endl;
-	std::cout << "StackHigh:" << (std::hex) << " 0x" << (int)read(sp + 1) << std::endl;
 
 	return 6;
 }
@@ -1584,7 +1701,6 @@ int SM83::JRcce8(int8_t e8, uint8_t &y)
 	case 0:
 		if (getFlag(z) == 0)
 		{
-			std::cout << "AAAAAAAAAAAAAA" << std::endl;
 			pc += e8;
 			return 3;
 		}
@@ -1639,7 +1755,7 @@ int SM83::JPccn16(uint16_t& n16, uint8_t& y)
 		if (getFlag(z) == 0)
 		{
 			pc = n16;
-			std::cout << "Jump Adress = " << (std::hex) << " 0x" << (int)n16 << std::endl;
+			//std::cout << "Jump Adress = " << (std::hex) << " 0x" << (int)n16 << std::endl;
 			return 4;
 		}
 		else 
@@ -1860,6 +1976,7 @@ int SM83::DAA()
 		{
 			A += 0x06;
 		}
+
 		if (getFlag(c) == 1 || ((A & 0xF0) > 0x90)) 
 		{
 			A += 0x60;
@@ -1874,6 +1991,7 @@ int SM83::DAA()
 		{
 			A -= 0x06;
 		}
+	
 		if (getFlag(c) == 1 || ((A & 0xF0) > 0x90))
 		{
 			A -= 0x60;
@@ -1883,6 +2001,7 @@ int SM83::DAA()
 	}
 
 	if(A == 0x00) setFlag(z, 1);
+	else setFlag(z, 0);
 	setFlag(h, 0);
 
 
@@ -1924,3 +2043,284 @@ int SM83::SCF()
 void SM83::HALT()
 {
 }
+
+#ifdef DEBUG
+
+void SM83::initializeInstrMap()
+{
+	instrMap[0x00] = "NOP";
+	instrMap[0x01] = "LD BC, d16";
+	instrMap[0x02] = "LD (BC), A";
+	instrMap[0x03] = "INC BC";
+	instrMap[0x04] = "INC B";
+	instrMap[0x05] = "DEC B";
+	instrMap[0x06] = "LD B, d8";
+	instrMap[0x07] = "RLCA";
+	instrMap[0x08] = "LD (a16), SP";
+	instrMap[0x09] = "ADD HL, BC";
+	instrMap[0x0A] = "LD A, (BC)";
+	instrMap[0x0B] = "DEC BC";
+	instrMap[0x0C] = "INC C";
+	instrMap[0x0D] = "DEC C";
+	instrMap[0x0E] = "LD C, d8";
+	instrMap[0x0F] = "RRCA";
+
+	instrMap[0x10] = "STOP d8";
+	instrMap[0x11] = "LD DE, d16";
+	instrMap[0x12] = "LD (DE), A";
+	instrMap[0x13] = "INC DE";
+	instrMap[0x14] = "INC D";
+	instrMap[0x15] = "DEC D";
+	instrMap[0x16] = "LD D, d8";
+	instrMap[0x17] = "RLA";
+	instrMap[0x18] = "JR r8";
+	instrMap[0x19] = "ADD HL, DE";
+	instrMap[0x1A] = "LD A, (DE)";
+	instrMap[0x1B] = "DEC DE";
+	instrMap[0x1C] = "INC E";
+	instrMap[0x1D] = "DEC E";
+	instrMap[0x1E] = "LD E, d8";
+	instrMap[0x1F] = "RRA";
+
+	instrMap[0x20] = "JR NZ, r8";
+	instrMap[0x21] = "LD HL, d16";
+	instrMap[0x22] = "LD (HL+), A";
+	instrMap[0x23] = "INC HL";
+	instrMap[0x24] = "INC H";
+	instrMap[0x25] = "DEC H";
+	instrMap[0x26] = "LD H, d8";
+	instrMap[0x27] = "DAA";
+	instrMap[0x28] = "JR Z, r8";
+	instrMap[0x29] = "ADD HL, HL";
+	instrMap[0x2A] = "LD A, (HL+)";
+	instrMap[0x2B] = "DEC HL";
+	instrMap[0x2C] = "INC L";
+	instrMap[0x2D] = "DEC L";
+	instrMap[0x2E] = "LD L, d8";
+	instrMap[0x2F] = "CPL";
+
+	instrMap[0x30] = "JR NC, r8";
+	instrMap[0x31] = "LD SP, d16";
+	instrMap[0x32] = "LD (HL-), A";
+	instrMap[0x33] = "INC SP";
+	instrMap[0x34] = "INC (HL)";
+	instrMap[0x35] = "DEC (HL)";
+	instrMap[0x36] = "LD (HL), d8";
+	instrMap[0x37] = "SCF";
+	instrMap[0x38] = "JR C, r8";
+	instrMap[0x39] = "ADD HL, SP";
+	instrMap[0x3A] = "LD A, (HL-)";
+	instrMap[0x3B] = "DEC SP";
+	instrMap[0x3C] = "INC A";
+	instrMap[0x3D] = "DEC A";
+	instrMap[0x3E] = "LD A, d8";
+	instrMap[0x3F] = "CCF";
+
+	instrMap[0x40] = "LD B, B";
+	instrMap[0x41] = "LD B, C";
+	instrMap[0x42] = "LD B, D";
+	instrMap[0x43] = "LD B, E";
+	instrMap[0x44] = "LD B, H";
+	instrMap[0x45] = "LD B, L";
+	instrMap[0x46] = "LD B, (HL)";
+	instrMap[0x47] = "LD B, A";
+	instrMap[0x48] = "LD C, B";
+	instrMap[0x49] = "LD C, C";
+	instrMap[0x4A] = "LD C, D";
+	instrMap[0x4B] = "LD C, E";
+	instrMap[0x4C] = "LD C, H";
+	instrMap[0x4D] = "LD C, L";
+	instrMap[0x4E] = "LD C, (HL)";
+	instrMap[0x4F] = "LD C, A";
+
+	instrMap[0x50] = "LD D, B";
+	instrMap[0x51] = "LD D, C";
+	instrMap[0x52] = "LD D, D";
+	instrMap[0x53] = "LD D, E";
+	instrMap[0x54] = "LD D, H";
+	instrMap[0x55] = "LD D, L";
+	instrMap[0x56] = "LD D, (HL)";
+	instrMap[0x57] = "LD D, A";
+	instrMap[0x58] = "LD E, B";
+	instrMap[0x59] = "LD E, C";
+	instrMap[0x5A] = "LD E, D";
+	instrMap[0x5B] = "LD E, E";
+	instrMap[0x5C] = "LD E, H";
+	instrMap[0x5D] = "LD E, L";
+	instrMap[0x5E] = "LD E, (HL)";
+	instrMap[0x5F] = "LD E, A";
+
+	instrMap[0x60] = "LD H, B";
+	instrMap[0x61] = "LD H, C";
+	instrMap[0x62] = "LD H, D";
+	instrMap[0x63] = "LD H, E";
+	instrMap[0x64] = "LD H, H";
+	instrMap[0x65] = "LD H, L";
+	instrMap[0x66] = "LD H, (HL)";
+	instrMap[0x67] = "LD H, A";
+	instrMap[0x68] = "LD L, B";
+	instrMap[0x69] = "LD L, C";
+	instrMap[0x6A] = "LD L, D";
+	instrMap[0x6B] = "LD L, E";
+	instrMap[0x6C] = "LD L, H";
+	instrMap[0x6D] = "LD L, L";
+	instrMap[0x6E] = "LD L, (HL)";
+	instrMap[0x6F] = "LD L, A";
+
+	instrMap[0x70] = "LD (HL), B";
+	instrMap[0x71] = "LD (HL), C";
+	instrMap[0x72] = "LD (HL), D";
+	instrMap[0x73] = "LD (HL), E";
+	instrMap[0x74] = "LD (HL), H";
+	instrMap[0x75] = "LD (HL), L";
+	instrMap[0x76] = "HALT";
+	instrMap[0x77] = "LD (HL), A";
+	instrMap[0x78] = "LD A, B";
+	instrMap[0x79] = "LD A, C";
+	instrMap[0x7A] = "LD A, D";
+	instrMap[0x7B] = "LD A, E";
+	instrMap[0x7C] = "LD A, H";
+	instrMap[0x7D] = "LD A, L";
+	instrMap[0x7E] = "LD A, (HL)";
+	instrMap[0x7F] = "LD A, A";
+
+	instrMap[0x80] = "ADD A, B";
+	instrMap[0x81] = "ADD A, C";
+	instrMap[0x82] = "ADD A, D";
+	instrMap[0x83] = "ADD A, E";
+	instrMap[0x84] = "ADD A, H";
+	instrMap[0x85] = "ADD A, L";
+	instrMap[0x86] = "ADD A, (HL)";
+	instrMap[0x87] = "ADD A, A";
+	instrMap[0x88] = "ADC A, B";
+	instrMap[0x89] = "ADC A, C";
+	instrMap[0x8A] = "ADC A, D";
+	instrMap[0x8B] = "ADC A, E";
+	instrMap[0x8C] = "ADC A, H";
+	instrMap[0x8D] = "ADC A, L";
+	instrMap[0x8E] = "ADC A, (HL)";
+	instrMap[0x8F] = "ADC A, A";
+
+	instrMap[0x90] = "SUB B";
+	instrMap[0x91] = "SUB C";
+	instrMap[0x92] = "SUB D";
+	instrMap[0x93] = "SUB E";
+	instrMap[0x94] = "SUB H";
+	instrMap[0x95] = "SUB L";
+	instrMap[0x96] = "SUB (HL)";
+	instrMap[0x97] = "SUB A";
+	instrMap[0x98] = "SBC A, B";
+	instrMap[0x99] = "SBC A, C";
+	instrMap[0x9A] = "SBC A, D";
+	instrMap[0x9B] = "SBC A, E";
+	instrMap[0x9C] = "SBC A, H";
+	instrMap[0x9D] = "SBC A, L";
+	instrMap[0x9E] = "SBC A, (HL)";
+	instrMap[0x9F] = "SBC A, A";
+
+	instrMap[0xA0] = "AND B";
+	instrMap[0xA1] = "AND C";
+	instrMap[0xA2] = "AND D";
+	instrMap[0xA3] = "AND E";
+	instrMap[0xA4] = "AND H";
+	instrMap[0xA5] = "AND L";
+	instrMap[0xA6] = "AND (HL)";
+	instrMap[0xA7] = "AND A";
+	instrMap[0xA8] = "XOR B";
+	instrMap[0xA9] = "XOR C";
+	instrMap[0xAA] = "XOR D";
+	instrMap[0xAB] = "XOR E";
+	instrMap[0xAC] = "XOR H";
+	instrMap[0xAD] = "XOR L";
+	instrMap[0xAE] = "XOR (HL)";
+	instrMap[0xAF] = "XOR A";
+
+	instrMap[0xB0] = "OR B";
+	instrMap[0xB1] = "OR C";
+	instrMap[0xB2] = "OR D";
+	instrMap[0xB3] = "OR E";
+	instrMap[0xB4] = "OR H";
+	instrMap[0xB5] = "OR L";
+	instrMap[0xB6] = "OR (HL)";
+	instrMap[0xB7] = "OR A";
+	instrMap[0xB8] = "CP B";
+	instrMap[0xB9] = "CP C";
+	instrMap[0xBA] = "CP D";
+	instrMap[0xBB] = "CP E";
+	instrMap[0xBC] = "CP H";
+	instrMap[0xBD] = "CP L";
+	instrMap[0xBE] = "CP (HL)";
+	instrMap[0xBF] = "CP A";
+
+	instrMap[0xC0] = "RET NZ";
+	instrMap[0xC1] = "POP BC";
+	instrMap[0xC2] = "JP NZ, a16";
+	instrMap[0xC3] = "JP a16";
+	instrMap[0xC4] = "CALL NZ, a16";
+	instrMap[0xC5] = "PUSH BC";
+	instrMap[0xC6] = "ADD A, d8";
+	instrMap[0xC7] = "RST 00H";
+	instrMap[0xC8] = "RET Z";
+	instrMap[0xC9] = "RET";
+	instrMap[0xCA] = "JP Z, a16";
+	instrMap[0xCB] = "PREFIX";
+	instrMap[0xCC] = "CALL Z, a16";
+	instrMap[0xCD] = "CALL a16";
+	instrMap[0xCE] = "ADC A, d8";
+	instrMap[0xCF] = "RST 08H";
+
+	instrMap[0xD0] = "RET NC";
+	instrMap[0xD1] = "POP DE";
+	instrMap[0xD2] = "JP NC, a16";
+	instrMap[0xD3] = "Illegal Opcode";
+	instrMap[0xD4] = "CALL NC, a16";
+	instrMap[0xD5] = "PUSH DE";
+	instrMap[0xD6] = "SUB d8";
+	instrMap[0xD7] = "RST 10H";
+	instrMap[0xD8] = "RET C";
+	instrMap[0xD9] = "RETI";
+	instrMap[0xDA] = "JP C, a16";
+	instrMap[0xDB] = "Illegal Opcode";
+	instrMap[0xDC] = "CALL C, a16";
+	instrMap[0xDD] = "Illegal Opcode";
+	instrMap[0xDE] = "SBC A, d8";
+	instrMap[0xDF] = "RST 18H";
+
+	instrMap[0xE0] = "LDH (a8), A";
+	instrMap[0xE1] = "POP HL";
+	instrMap[0xE2] = "LD (C), A";
+	instrMap[0xE3] = "Illegal Opcode";
+	instrMap[0xE4] = "Illegal Opcode";
+	instrMap[0xE5] = "PUSH HL";
+	instrMap[0xE6] = "AND d8";
+	instrMap[0xE7] = "RST 20H";
+	instrMap[0xE8] = "ADD SP, r8";
+	instrMap[0xE9] = "JP HL";
+	instrMap[0xEA] = "LD (a16), A";
+	instrMap[0xEB] = "Illegal Opcode";
+	instrMap[0xEC] = "Illegal Opcode";
+	instrMap[0xED] = "Illegal Opcode";
+	instrMap[0xEE] = "XOR d8";
+	instrMap[0xEF] = "RST 28H";
+
+	instrMap[0xF0] = "LDH A, (a8)";
+	instrMap[0xF1] = "POP AF";
+	instrMap[0xF2] = "LD A, (C)";
+	instrMap[0xF3] = "DI";
+	instrMap[0xF4] = "Illegal Opcode";
+	instrMap[0xF5] = "PUSH AF";
+	instrMap[0xF6] = "OR d8";
+	instrMap[0xF7] = "RST 30H";
+	instrMap[0xF8] = "LD HL, SP + r8";
+	instrMap[0xF9] = "LD SP, HL";
+	instrMap[0xFA] = "LD A, (a16)";
+	instrMap[0xFB] = "EI";
+	instrMap[0xFC] = "Illegal Opcode";
+	instrMap[0xFD] = "Illegal Opcode";
+	instrMap[0xFE] = "CP d8";
+	instrMap[0xFF] = "RST 38H";
+}
+
+#endif // DEBUG
+
+

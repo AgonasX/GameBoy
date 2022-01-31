@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <iostream>
 class SM83_PPU
 {
 public:
