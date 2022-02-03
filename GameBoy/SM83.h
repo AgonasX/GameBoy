@@ -2,6 +2,7 @@
 
 #define DEBUG
 
+#include <array>
 #include <cstdint>
 #include <vector>
 #include <map>
@@ -47,6 +48,10 @@ public:
 	//Interrupt registers
 	uint8_t IE = 0x00;
 	uint8_t IF = 0x00;
+
+public:
+	//High RAM
+	std::array<uint8_t, 127> HRAM;
 
 public:
 	//External event functions

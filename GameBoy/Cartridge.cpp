@@ -20,6 +20,7 @@ Cartridge::Cartridge(std::string fileName)
 		//Get RAM size and cartridge type
 		RAMsize = vPGRMemory->at(0x0149);
 		cartridgeType = vPGRMemory->at(0x0147);
+		std::cout << "Cartridge type:" << (std::hex) << (int)cartridgeType << std::endl;
 
 		//std::cout << "SIZE: " << size << std::endl;
 		//std::cout << "RAM SIZE: " << RAMsize << std::endl;

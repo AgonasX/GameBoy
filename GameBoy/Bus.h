@@ -32,5 +32,6 @@ public:
 public:
 	//The master clock
 	void clock();
+	uint8_t clockTicks = 0x00;
 };
 
