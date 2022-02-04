@@ -80,7 +80,7 @@ void SM83::irHandler()
 {
 	if (IME == true)
 	{
-		if (((IF & 0x01) > 1) && ((IE & 0x01) > 1)) //VBlank
+		if (((IF & 0x01) > 0) && ((IE & 0x01) > 0)) //VBlank
 		{
 			IME = false;
 			IF = IF & ~0x01;
@@ -90,7 +90,7 @@ void SM83::irHandler()
 			write(sp, pc & 0x00FF);
 			pc = 0x0040;
 		}
-		else if (((IF & (0x01 << 1)) > 1) && ((IE & (0x01 << 1)) > 1)) //LCD STAT
+		else if (((IF & (0x01 << 1)) > 0) && ((IE & (0x01 << 1)) > 0)) //LCD STAT
 		{
 			IME = false;
 			IF = IF & ~(0x01 << 1);
@@ -100,7 +100,7 @@ void SM83::irHandler()
 			write(sp, pc & 0x00FF);
 			pc = 0x0048;
 		}
-		else if (((IF & (0x01 << 2)) > 1) && ((IE & (0x01 << 2)) > 1)) //Timer
+		else if (((IF & (0x01 << 2)) > 0) && ((IE & (0x01 << 2)) > 0)) //Timer
 		{
 			IME = false;
 			IF = IF & ~(0x01 << 2);
@@ -110,7 +110,7 @@ void SM83::irHandler()
 			write(sp, pc & 0x00FF);
 			pc = 0x0050;
 		}
-		else if (((IF & (0x01 << 3)) > 1) && ((IE & (0x01 << 3)) > 1)) //Serial
+		else if (((IF & (0x01 << 3)) > 0) && ((IE & (0x01 << 3)) > 0)) //Serial
 		{
 			IME = false;
 			IF = IF & ~(0x01 << 3);
@@ -120,7 +120,7 @@ void SM83::irHandler()
 			write(sp, pc & 0x00FF);
 			pc = 0x0058;
 		}
-		else if (((IF & (0x01 << 4)) > 1) && ((IE & (0x01 << 4)) > 1)) //Joypad
+		else if (((IF & (0x01 << 4)) > 0) && ((IE & (0x01 << 4)) > 0)) //Joypad
 		{
 			IME = false;
 			IF = IF & ~(0x01 << 1);
@@ -139,6 +139,22 @@ void SM83::clock()
 {
 	if (cycles == 0)
 	{
+		//Handle HALT instruction first
+		if (HALTFlag == true)
+		{
+			cycles--;
+			if ((IE & IF) == 0)
+			{
+				cycles = 3;
+				return; //Wait one M-cycle
+			}
+			else
+			{
+				cycles = 0;
+				HALTFlag = false;
+			}
+		}
+
 		irHandler(); //Call irHandler first to check if we need to hand control to the interrupt handler
 
 		opcode = read(pc);
@@ -153,8 +169,8 @@ void SM83::clock()
 			pc++;
 			opcode = read(pc);
 			operatePrefix(opcode);
-			std::cout << "PREFIX!!!" << std::endl;
-			std::cout <<"opcode: " << (std::hex) << " 0x" << (int)opcode << std::endl;
+			//std::cout << "PREFIX!!!" << std::endl;
+			//std::cout <<"opcode: " << (std::hex) << " 0x" << (int)opcode << std::endl;
 		}
 		else
 			operate(opcode);
@@ -200,6 +216,10 @@ void SM83::write(uint16_t address, uint8_t data)
 //Do one instruction
 void SM83::operate(uint8_t opcode)
 {
+	//HALT bug, pc fails to be incremented
+	if (HALTBug == true)
+		pcBug = pc;
+
 	pc++; //Increment program counter
 	Z = opcode & 0x07;
 	Y = (opcode & 0x38) >> 3;
@@ -710,6 +730,13 @@ void SM83::operatePrefix(uint8_t opcode)
 	default:
 		std::cout << "Illegal opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
 		break;
+	}
+
+	//HALT bug
+	if (HALTBug == true)
+	{
+		pc = pcBug;
+		HALTBug = false;
 	}
 
 }
@@ -2039,9 +2066,18 @@ int SM83::SCF()
 	return 1;
 }
 
-//Do nothing for now
+//Enter CPU low-power consumption mode until an interrupt occurs. 
+//The exact behavior of this instruction depends on the state of the IME flag.
 void SM83::HALT()
 {
+
+	HALTFlag = true;
+
+	//HALT bug
+	if ((IE & IF) > 0 && IME == false)
+		HALTBug = true;
+	
+	cycles = 1;
 }
 
 #ifdef DEBUG

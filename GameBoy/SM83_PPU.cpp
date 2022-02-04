@@ -30,8 +30,8 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 	if (0x8000 <= address && address <= 0x9FFF)
 	{
 		VRAM.at(address - 0x8000) = data;
-		if(address >= 0x9C00)
-		std::cout << (std::hex) << "0x" << (int)VRAM.at(address - 0x8000) << std::endl;
+		//if(address >= 0x9C00)
+		//std::cout << (std::hex) << "0x" << (int)VRAM.at(address - 0x8000) << std::endl;
 	}
 
 	//Palett registers
@@ -43,7 +43,9 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 		LCDC.reg = data;
 	if (address == 0xFF41)//LCD status register (STAT)
 	{
-		STAT.reg |=( data & 0xF8); //Only upper 5 bits are writable
+		uint8_t tempSTAT = STAT.reg;
+		STAT.reg = (data & 0xF8); //Only upper 5 bits are writable
+		STAT.reg |= (tempSTAT & 0x7);
 	}
 
 	//LCD position and Scrolling 
@@ -86,7 +88,7 @@ uint8_t SM83_PPU::ppuRead(uint16_t address)
 	if (address == 0xFF44) //LY (LCD Y Coordinate) (R)
 		data = LY;
 	if (address == 0xFF45) //LY LYC (LY Compare) (R/W)
-		data = LY;
+		data = LYC;
 	if (address == 0xFF4A) //WY (Window Y Position) (R/W)
 		data = WY;
 	if (address == 0xFF4B) //WX (Window X Position + 7) (R/W)
@@ -156,6 +158,8 @@ uint8_t SM83_PPU::cpuRead(uint16_t address)
 //Clocks one tick of PPU
 void SM83_PPU::clock()
 {
+	LY = scanLine; //Give value to LY register
+
 	if(scanLine == 0) bFrameComplete = false;
 
 	//Update the LYC = LY flag
@@ -234,8 +238,6 @@ void SM83_PPU::Mode0()
 		if (scanLine == 143) STAT.modeFlag = 1; //Go to VBlank
 		else if (scanLine < 143) STAT.modeFlag = 2; //Go to OAM scan
 		scanLine++; //Increment scanLine
-		LY = scanLine; //Give value to LY register
-
 	}	
 }
 
@@ -255,17 +257,20 @@ void SM83_PPU::Mode1()
 			bStatInterruptBlock = false;
 	}
 
-	if (scanLine == 153) //End of VBlank, now PPU will go back to scanLine 0 and enter OAM scan
+	if ((dots % 456) == 455)
 	{
-		STAT.modeFlag = 2; //Go to OAM scan
-		//Reset values
-		scanLine = 0;
-		LY = 0;
-		dots = 0;
-		bFrameComplete = true;
+		scanLine++; //Increment scanLine
+		if (scanLine == 154) //End of VBlank, now PPU will go back to scanLine 0 and enter OAM scan
+		{
+			STAT.modeFlag = 2; //Go to OAM scan
+			//Reset values
+			scanLine = 0;
+			LY = 0;
+			dots = 0;
+			bFrameComplete = true;
+		}
 	}
-
-	if ((dots % 456) == 455) scanLine++; //Increment scanLine
+	
 }
 
 //OAM scan
@@ -389,15 +394,15 @@ void SM83_PPU::Mode3()
 	{
 		//At the beginning of a scanline throw away pixel equal to the 3 lower bits of SCX ie. pause for the value of SCX
 		if (nPauseDots == 0) {
-			//std::cout <<(std::hex) << "0x" <<(int)palettes.at((BGPixelFIFO & 0xC000) >> 14) << std::endl;
-			//std::cout << (std::hex) <<"0x" << (int)x << std::endl;
-			LCDscreen.at(x + 160 * scanLine) = palettes.at((BGPixelFIFO & 0xC000) >> 14);
-			BGPixelFIFO << 2;
+			colorIndex = (BGPixelFIFO & 0xC000) >> 14;
+			argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+			LCDscreen.at(x + 160 * scanLine) = argb;
+			BGPixelFIFO <<= 2;
 			x++; //increment x coordinate
 		}
 		else
 		{
-			BGPixelFIFO << 2;
+			BGPixelFIFO <<= 2;
 			nPauseDots--;
 		}
 		pixels--; //Decrement pixels
@@ -413,7 +418,7 @@ void SM83_PPU::Mode3()
 uint16_t SM83_PPU::getTile(uint8_t X, uint8_t Y, bool bMapArea)
 {
 	uint8_t tileID = 0x00;
-	uint8_t TileY = Y >> 3; //Get tile Y coordinate in map
+	uint8_t TileY = Y >> 3; //Get tile Y coordinate in map	
 	uint8_t TileRow = Y & 0x7; //Get tile row
 	if (bMapArea == 1)
 	{
@@ -448,14 +453,13 @@ uint16_t SM83_PPU::getTileMap(uint8_t tileID, uint8_t row)
 	if (LCDC.BGAndWindowTileDataArea == 1)
 	{
 		startAddress = 0x0000;
-		uint16_t lowAddress = startAddress + (2 * row) + 16 * tileID;
+		lowAddress = startAddress + (2 * row) + 16 * tileID;
 	}
 	else
 	{
 		startAddress = 0x1000;
-		uint16_t lowAddress = startAddress + (2 * row) + 16 * (int8_t)tileID;
+		lowAddress = startAddress + (2 * row) + 16 * (int8_t)tileID;
 	}
-
 	
 	return lowAddress;
 
@@ -519,11 +523,65 @@ std::array<uint32_t, 65536>& SM83_PPU::getTileMap1Data()
 			//Loop through the 8 row pixels
 			for (int x = 0; x < 8; x++)
 			{
-				tileMap1.at(x + 8 * X + 256 * row) = palettes.at((rowData & 0xC000) >> 14);
-				rowData << 2;
+				colorIndex = (rowData & 0xC000) >> 14;
+				argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+				tileMap1.at(x + 8 * X + 256 * row) = argb;
+				rowData <<= 2;
 			}
 
 		}
 	}
 	return tileMap1;
+}
+
+std::array<uint32_t, 65536>& SM83_PPU::getTileMap0Data()
+{
+	uint16_t lowAddress = 0x0000;
+	uint8_t highByte = 0x00;
+	uint8_t lowByte = 0x00;
+	uint16_t rowData = 0x00;
+	uint16_t buffer = 0x00; //Buffer to give data to rowData
+	//Loop through 32 x-coordinates of tiles and 256 rows in tile map 
+	for (int row = 0; row < 256; row++)
+	{
+		for (int X = 0; X < 32; X++)
+		{
+			lowAddress = getTile(X, row, 0); //Get the low address of the tile row
+			lowByte = VRAM.at(lowAddress);
+			highByte = VRAM.at(lowAddress + 1);
+			buffer = 0x0000;
+		
+			
+			//Extract row data
+			for (int i = 7; i >= 0; i--)
+			{
+				uint16_t bits = ((highByte & (1 << i)) << (8 + (7 - i))) | ((lowByte & (1 << i)) << (8 + (6 - i)));
+				buffer |= (bits >> 2 * (7 - i));
+			}
+			
+			rowData = buffer;
+			
+			//Loop through the 8 row pixels
+			for (int x = 0; x < 8; x++)
+			{
+				colorIndex = (rowData & 0xC000) >> 14;
+				argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+				tileMap0.at(x + 8 * X + 256 * row) = argb;
+				rowData <<= 2;
+			}
+			
+
+			/*
+			for (int x = 0; x < 8; x++)
+			{
+				lowBit = (lowByte & (0x1 << (7 - x))) >> (7 - x);
+				highBit = (highByte & (0x1 << (7 - x))) >> (7 - x);
+				colorIndex = (highBit << 1) | lowBit;
+				argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+				tileMap0.at(x + 8 * X + 256 * row) = argb;
+			}
+			*/
+		}
+	}
+	return tileMap0;
 }

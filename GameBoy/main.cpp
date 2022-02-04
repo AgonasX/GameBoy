@@ -27,6 +27,7 @@ private:
 
 	//Draw pixels
 	void DrawTileData(int X,int Y);
+	void DrawTileMap0(int X, int Y);
 	void DrawTileMap1(int X, int Y);
 	void DrawLCDScreen(int X, int Y);
 
@@ -100,6 +101,9 @@ public:
 		if (GetKey(olc::Key::SPACE).bPressed) bStepEmulation = true;
 		if (GetKey(olc::Key::ENTER).bPressed) bRun60fps = true;
 
+		//Interrupts
+		if (GetKey(olc::Key::S).bPressed) GB.cpu.irqLCDSTAT();
+
 		//Run enough clock ticks for one instruction at a time:
 		if (bRunEmulator)
 		{
@@ -172,7 +176,7 @@ public:
 			{
 				GB.clock();
 			} //while (GB.cpu.opcode != 0xC3 && GB.cpu.opcode != 0xC2); 
-			while (GB.cpu.pc < 0x4000);
+			while (GB.cpu.IF == 0);
 			//Also clock out remaining ticks for other devices connected to the bus
 			do
 			{
@@ -183,8 +187,9 @@ public:
 
 		
 		DrawTileData(160,0);
-		DrawTileMap1(0, 192);
-		DrawLCDScreen(0, 0);
+		DrawTileMap0(0, 192);
+		DrawTileMap1(256, 192);
+		DrawLCDScreen(0, 24);
 
 		return true;
 	}
@@ -218,6 +223,16 @@ void GameBoy::DrawTileData(int X, int Y)
 	{
 		DrawRect(0 + X, 64 + Y, 127, 128, olc::BLACK);
 	}
+}
+
+void GameBoy::DrawTileMap0(int X, int Y)
+{
+	std::array<uint32_t, 65536>& tileData = GB.ppu.getTileMap0Data();
+
+	//Draw tile map 1
+	for (int x = 0; x < 256; x++)
+		for (int y = 0; y < 256; y++)
+			Draw(x + X, y + Y, olc::Pixel(tileData.at(x + y * 256)));
 }
 
 void GameBoy::DrawTileMap1(int X, int Y)
@@ -291,6 +306,15 @@ void GameBoy::drawInstr(int X, int Y)
 	DrawString(X + 125, Y + 70, "IME", GB.cpu.IME ? olc::GREEN : olc::RED);
 	DrawString(X + 100, Y + 80, "IE: " + bin(GB.cpu.IE,4));
 	DrawString(X + 100, Y + 90, "IF: " + bin(GB.cpu.IF,4));
+
+	//PPU
+	DrawString(X + 125, Y + 130, "PPU Enable", GB.ppu.LCDC.PPUEnable == 1 ? olc::GREEN : olc::RED);
+	DrawString(X + 100, Y + 140, "BG/Window Area:" + hex(GB.ppu.LCDC.BGAndWindowTileDataArea, 2));
+	DrawString(X + 100, Y + 150, "BG Area:" + hex(GB.ppu.LCDC.BGTileMapArea,2));
+	DrawString(X + 100, Y + 160, "Window Area:" + hex(GB.ppu.LCDC.WindowsTileMapArea, 2));
+	DrawString(X + 100, Y + 170, "STAT = " + bin(GB.ppu.STAT.reg, 8));
+	
+
 
 	//Flags:
 	DrawString(X + 100, Y + 100, "F: " + bin(GB.cpu.F, 8));

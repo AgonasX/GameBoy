@@ -51,7 +51,7 @@ public:
 
 public:
 	//High RAM
-	std::array<uint8_t, 127> HRAM;
+	std::array<uint8_t, 127> HRAM = { 0x00 };
 
 public:
 	//External event functions
@@ -230,7 +230,11 @@ private:
 	int STOP(); //STOP
 	int SCF();
 	void HALT(); //HALT
-	//Missing HALT
+	//Flags to emulate Halt behaviour and bug
+	bool HALTFlag = false;
+	bool HALTBug = false; 
+	uint16_t pcBug = 0x00;
+	
 
 #ifdef DEBUG
 	public:

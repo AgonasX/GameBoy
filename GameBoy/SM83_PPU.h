@@ -72,6 +72,10 @@ private:
 	bool bMapArea = 1;
 	int Fetcher = 0; //Fetcher, 0 = get tile, 1 = getTileDataLow, 2 = getTileDataHigh, 3 = push / sleep
 
+	//For getting correct palett
+	uint8_t colorIndex = 0x00;
+	uint32_t argb = 0x00000000;
+
 public:
 	//PPU registers
 
@@ -98,7 +102,7 @@ public:
 		struct
 		{
 			uint8_t modeFlag : 2;
-			uint8_t LYFlag : 2;
+			uint8_t LYFlag : 1;
 			uint8_t HBLank : 1;
 			uint8_t VBlank : 1;
 			uint8_t OAM : 1;
@@ -140,16 +144,17 @@ public:
 	//Tiledata
 	std::array<uint32_t, 24576> tileData = { 0x00000000 };
 	std::array<uint32_t, 24576>& getTileTable();
-	uint32_t argb = 0x00000000;
 	uint8_t RowLowByte = 0x00;
 	uint8_t RowHighByte = 0x00;
 	uint8_t lowBit = 0x00;
 	uint8_t highBit = 0x00;
-	uint8_t colorIndex = 0x00;
+	
 
 	//TileMaps
 	std::array<uint32_t, 65536> tileMap1 = { 0x00000000 };
 	std::array<uint32_t, 65536>& getTileMap1Data();
+	std::array<uint32_t, 65536> tileMap0 = { 0x00000000 };
+	std::array<uint32_t, 65536>& getTileMap0Data();
 
 private:
 	//VRAM
