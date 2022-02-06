@@ -90,6 +90,9 @@ public:
 			//DEBUG struff
 	#ifdef DEBUG
 			drawInstr(288, 0);
+			DrawTileData(160, 0);
+			DrawTileMap0(0, 192);
+			DrawTileMap1(256, 192);
 	#endif // DEBUG
 
 
@@ -175,7 +178,7 @@ public:
 			do
 			{
 				GB.clock();
-			} //while (GB.cpu.opcode != 0xC3 && GB.cpu.opcode != 0xC2); 
+			} while ((GB.cpu.IF & 0x02) == 0);
 			while (GB.cpu.IF == 0);
 			//Also clock out remaining ticks for other devices connected to the bus
 			do
@@ -186,10 +189,8 @@ public:
 		}
 
 		
-		DrawTileData(160,0);
-		DrawTileMap0(0, 192);
-		DrawTileMap1(256, 192);
-		DrawLCDScreen(0, 24);
+		
+		DrawLCDScreen(0, 0);
 
 		return true;
 	}
@@ -198,8 +199,14 @@ public:
 int main()
 {
 	GameBoy emulator;
+	//Debug
+#ifndef DEBUG
+	if (emulator.Construct(160, 144, 3, 3))
+		emulator.Start();
+#else
 	if (emulator.Construct(160 + 128 + 300, 192 + 256, 1, 1))
 		emulator.Start();
+#endif		
 	return 0;
 }
 

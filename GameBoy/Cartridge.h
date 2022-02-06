@@ -7,6 +7,7 @@
 
 #include "MBC.h"
 #include "MBC_0.h"
+#include "MBC_1.h"
 
 class Cartridge
 {
@@ -37,8 +38,9 @@ private:
 
 private:
 	//ROM size and cartridge type
-	uint8_t RAMsize = 0;
-	uint8_t cartridgeType = 0x00; 
+	uint32_t RAMsize = 0;
+	uint32_t cartridgeType = 0x00; 
+	
 
 private:
 	//MBC

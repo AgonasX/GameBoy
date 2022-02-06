@@ -6,22 +6,39 @@ Cartridge::Cartridge(std::string fileName)
 	vPGRMemory = std::make_shared <std::vector<uint8_t >>();
 	vRAM = std::make_shared <std::vector<uint8_t >>();
 
-	std::streampos size;
 	std::ifstream inFile(fileName.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
 	if (inFile.is_open())
 	{
+		std::streampos size;
 		size = inFile.tellg();
 		vPGRMemory->resize(size);
 		inFile.seekg(0, std::ios::beg);
 		inFile.read((char*)vPGRMemory->data(), size);
 
-		
-
 		//Get RAM size and cartridge type
 		RAMsize = vPGRMemory->at(0x0149);
 		cartridgeType = vPGRMemory->at(0x0147);
-		std::cout << "Cartridge type:" << (std::hex) << (int)cartridgeType << std::endl;
+		
+		switch (RAMsize)
+		{
+		case 0x00: //No RAM
+			RAMsize = 0;
+			break;
+		case 0x2:
+			RAMsize = 0x2000;
+			break;
+		case 0x3:
+			RAMsize = 0x8000;
+			break;
+		case 0x4:
+			RAMsize = 0x20000;
+			break;
+		case 0x5:
+			RAMsize = 0x10000;
+			break;
+		}
 
+		std::cout << "Cartridge type:" << (std::hex) << (int)cartridgeType << std::endl;
 		//std::cout << "SIZE: " << size << std::endl;
 		//std::cout << "RAM SIZE: " << RAMsize << std::endl;
 
@@ -38,6 +55,12 @@ Cartridge::Cartridge(std::string fileName)
 	{
 	case 0x00: //No MBC
 		pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM);
+		break;
+	case 0x01: //MBC1 no RAM
+		pMBC = std::make_unique<MBC_1>(vPGRMemory, vRAM);
+		pMBC->setRamBanks(RAMsize >> 13); //Divide by 8KB to get number of RAM banks
+		pMBC->setMemoryBanks(0x2 << cartridgeType); //Memory banks are powers of 2
+		break;
 	}
 
 	pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM); //Always no MBC for testing 
