@@ -14,9 +14,11 @@ SM83_PPU::SM83_PPU()
 	palettes.at(2) = 0xFF306230;
 	palettes.at(3) = 0xFF0F380F;
 
-	LCDscreen.fill(0xFFFFFFFF);
+	//LCDscreen.fill(0xFFFFFFFF);
 
 	STAT.modeFlag = 2; //OAM Scan first
+
+	vOAMObjects.resize(10); //Maximum 10 objects in OAM scan
 
 }
 
@@ -33,6 +35,10 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 		//if(address >= 0x9C00)
 		//std::cout << (std::hex) << "0x" << (int)VRAM.at(address - 0x8000) << std::endl;
 	}
+
+	//OAM
+	if (0xFE00 <= address && address <= 0xFE9F)
+		OAM.at(address - 0xFE00) = data;
 
 	//Palett registers
 	if (address == 0xFF47) //BG palett data
@@ -64,11 +70,14 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 uint8_t SM83_PPU::ppuRead(uint16_t address)
 {
 	uint8_t data = 0x00;
+
 	//VRAM
 	if (0x8000 <= address && address <= 0x9FFF)
-	{
 		data = VRAM.at(address - 0x8000);
-	}
+
+	//OAM
+	if (0xFE00 <= address && address <= 0xFE9F)
+		data = OAM.at(address - 0xFE00);
 
 	//Palett registers
 	if (address == 0xFF47) //BG palett data
@@ -102,9 +111,7 @@ void SM83_PPU::cpuWrite(uint16_t address, uint8_t data)
 	//VRAM
 	if (0x8000 <= address && address <= 0x9FFF)
 	{
-		//LCDC.PPUEnable = 0; //Force write to VRAM
-		//std::cout << (std::hex) << "0x" << (int)LCDC.PPUEnable << std::endl;
-		//CPU have full access to VRAM and OPM if PPU disabled
+		//CPU have full access to VRAM and OAM if PPU disabled
 		if (LCDC.PPUEnable == 0) {
 			ppuWrite(address, data);
 		}
@@ -114,7 +121,22 @@ void SM83_PPU::cpuWrite(uint16_t address, uint8_t data)
 		//CPU does not have access to VRAM during mode 3
 			if (STAT.modeFlag != 3)
 				ppuWrite(address, data);
-			
+		}
+	}
+
+	//OAM
+	else if (0xFE00 <= address && address <= 0xFE9F)
+	{
+		//CPU have full access to VRAM and OAM if PPU disabled
+		if (LCDC.PPUEnable == 0) {
+			ppuWrite(address, data);
+		}
+
+		else
+		{
+			//CPU does not have access to OAM during mode 2 and mode 3
+			if (STAT.modeFlag != 3 && STAT.modeFlag != 2)
+				ppuWrite(address, data);
 		}
 	}
 
@@ -130,8 +152,6 @@ uint8_t SM83_PPU::cpuRead(uint16_t address)
 	//VRAM
 	if (0x8000 >= address && address <= 0x9FFF)
 	{
-		//LCDC.PPUEnable = 0; //Force to read VRAM
-
 		//CPU have full access to VRAM and OPM if PPU disabled
 		if (LCDC.PPUEnable == 0) {
 			data = ppuRead(address);
@@ -145,6 +165,23 @@ uint8_t SM83_PPU::cpuRead(uint16_t address)
 			else
 				data = ppuRead(address);
 
+		}
+	}
+
+
+	//OAM
+	else if (0xFE00 <= address && address <= 0xFE9F)
+	{
+		//CPU have full access to VRAM and OAM if PPU disabled
+		if (LCDC.PPUEnable == 0) {
+			data = ppuRead(address);
+		}
+
+		else
+		{
+			//CPU does not have access to OAM during mode 2 and mode 3
+			if (STAT.modeFlag != 3 && STAT.modeFlag != 2)
+				data = ppuRead(address);
 		}
 	}
 
@@ -278,9 +315,36 @@ void SM83_PPU::Mode2()
 {
 	if ((dots % 456) == 79)
 	{
-		STAT.modeFlag = 3; //Go to mode 3
-		nPauseDots = SCX & 0x7; //Read SCX to find how many dot to pause
+		int nOAMs = 0; //For counting sprites
 
+		struct OAMobject sOAMobject;
+
+		//Get Object size
+		uint8_t ObjectSize = 0x00;
+		(LCDC.OBJSize == 0) ? ObjectSize = 0x8 : ObjectSize = 0x10;
+
+
+		//Scan through OAM to find 10 OAM sprites to be drawn on a scanline
+		for (int nSprites = 0; nSprites < 40; nSprites++)
+		{
+			if (nOAMs == 10) break;
+
+			//A sprite is selected when LY is between the sprites height (taking the sprite Y coordinate in consideration)
+			if ((LY + 16 >= OAM.at(4 * nSprites)) && (LY + 16 < (OAM.at(4 * nSprites) + ObjectSize)))
+			{
+				//Give OAM memory to sOAMobjects
+				sOAMobject.Ypos = OAM.at(4 * nSprites);
+				sOAMobject.Xpos = OAM.at(4 * nSprites + 1);
+				sOAMobject.TileIndex = OAM.at(4 * nSprites + 2);
+				sOAMobject.Flags = OAM.at(4 * nSprites + 3);
+
+				vOAMObjects.push_back(sOAMobject);
+				nOAMs++;
+			}
+		}
+
+		STAT.modeFlag = 3; //Go to mode 3
+		nPauseDots = SCX & 0x7; //Read SCX to find how many dots to pause
 	}
 }
 	
@@ -288,7 +352,6 @@ void SM83_PPU::Mode2()
 //Pixel transfer 
 void SM83_PPU::Mode3()
 {
-	LCDC.BGAndWindowPriority = 1; //Force BG rendering
 	//Window/Background Rendering:
 	if (LCDC.WindowEnable == 1 && LCDC.BGAndWindowPriority == 1)
 	{

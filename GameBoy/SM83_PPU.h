@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <iostream>
+#include <vector>
 
 class Bus; //Forward declaration of bus
 
@@ -56,8 +57,10 @@ private:
 public:
 	//Pixel FIFO and screen
 	std::array<uint32_t, 23040> LCDscreen;
+	uint16_t PixelFIFO = 0x0000;
+	uint16_t OAMFIFO = 0x0000;
 	uint16_t BGPixelFIFO = 0x0000;
-	uint16_t BGPixelFIFObuffer = 0x0000; //Buffer for when pixel FIFO needs it
+	uint16_t BGPixelFIFObuffer = 0x0000; //Buffer for when BG pixel FIFO needs it
 
 private:
 	//FIFO pixel fetcher
@@ -157,8 +160,21 @@ public:
 	std::array<uint32_t, 65536>& getTileMap0Data();
 
 private:
-	//VRAM
-	std::array<uint8_t, 8192> VRAM = { 0x00 };
+	//PPU RAM
+	std::array<uint8_t, 8192> VRAM = { 0x00 }; //VRAM
+	std::array<uint8_t, 160> OAM = { 0x00 }; //Object Attribute Memory
+	
+	//Structure for 10 objects to be drawn	
+	struct OAMobject
+	{
+		uint8_t Ypos;
+		uint8_t Xpos;
+		uint8_t TileIndex;
+		uint8_t Flags;
+	};
+
+	std::vector<OAMobject> vOAMObjects; //Vector for holding 10 sprites to be drawn
+	
 
 private:
 	//other variables and functions to faciliate emulation

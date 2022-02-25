@@ -40,7 +40,7 @@ Cartridge::Cartridge(std::string fileName)
 
 		std::cout << "Cartridge type:" << (std::hex) << (int)cartridgeType << std::endl;
 		//std::cout << "SIZE: " << size << std::endl;
-		//std::cout << "RAM SIZE: " << RAMsize << std::endl;
+		std::cout << "RAM SIZE: " << RAMsize << std::endl;
 
 		vRAM->resize(RAMsize); 
 
@@ -63,7 +63,7 @@ Cartridge::Cartridge(std::string fileName)
 		break;
 	}
 
-	pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM); //Always no MBC for testing 
+	//pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM); //Always no MBC for testing 
 }
 
 	Cartridge::~Cartridge()

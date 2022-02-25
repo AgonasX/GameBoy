@@ -32,8 +32,11 @@ uint8_t MBC_1::MBCRead(uint16_t address)
 	//RAM 
 	if (0xA000 <= address && address <= 0xBFFF)
 	{
-		RAMBankNumber &= 0x3;
-		data = pRAM->at(address + RAMBankNumber * 0xA000);
+		if ((RAMEnable & 0x0F) == 0x0A) //Ram must be enabled first
+		{
+			RAMBankNumber &= 0x3;
+			data = pRAM->at((address - 0xA000) + RAMBankNumber * 0x1FFF);
+		}
 	}
 
 	return data;
@@ -41,9 +44,15 @@ uint8_t MBC_1::MBCRead(uint16_t address)
 
 void MBC_1::MBCWrite(uint16_t address, uint8_t data)
 {
+
 	//RAM enable
-	if (0x0000 <= address && address <= 0x1FFF) 
+	if (0x0000 <= address && address <= 0x1FFF)
+	{
+		WriteToRamEnable = true;
 		RAMEnable = data;
+		std::cout << "RAM enabled?:" << (std::hex) << (int)RAMEnable << std::endl;
+		
+	}
 
 	//ROM bank number
 	if (0x2000 <= address && address <= 0x3FFF) 
@@ -60,7 +69,10 @@ void MBC_1::MBCWrite(uint16_t address, uint8_t data)
 	//RAM
 	if (0xA000 <= address && address <= 0xBFFF)
 	{
-		RAMBankNumber &= 0x3;
-		pRAM->at(address + RAMBankNumber * 0xA000) = data;
+		if ((RAMEnable & 0x0F) == 0x0A) //Ram must be enabled first
+		{
+			RAMBankNumber &= 0x3;
+			pRAM->at((address - 0xA000) + RAMBankNumber * 0x1FFF) = data;
+		}
 	}
 }

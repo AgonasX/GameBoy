@@ -42,7 +42,7 @@ private:
 	uint32_t cartridgeType = 0x00; 
 	
 
-private:
+public: //Public for debug
 	//MBC
 	std::unique_ptr<MBC> pMBC;
 	uint16_t mappedAddress = 0x00;

@@ -31,8 +31,12 @@ uint8_t Bus::cpuRead(uint16_t address)
 	if (0xA000 <= address && address <= 0xBFFF) //Cartridge RAM
 		data = cart->cpuRead(address);
 
-	//PPU VRAM and OPM
+	//PPU VRAM
 	if (0x8000 <= address && address <= 0x9FFF)
+		data = ppu.cpuRead(address);
+
+	//OAM
+	if (0xFE00 <= address && address <= 0xFE9F)
 		data = ppu.cpuRead(address);
 
 	//LCD registers
@@ -65,14 +69,18 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 	if (0x0000 <= address && address <= 0x7FFF)
 		cart->cpuWrite(address, data);
 
-	
+	//External Cartridge RAM
 	if (0xA000 <= address && address <= 0xBFFF)
 		cart->cpuWrite(address, data);
 
-	//PPU VRAM and OPM
+
+	//PPU VRAM
 	if (0x8000 <= address && address <= 0x9FFF)
 		ppu.cpuWrite(address, data);
 
+	//OAM
+	if (0xFE00 <= address && address <= 0xFE9F)
+		ppu.cpuWrite(address, data);
 	
 	//LCD registers
 	if (0xFF40 <= address && address <= 0xFF4B)
@@ -87,7 +95,6 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 	//HRAM
 	if (0xFF80 <= address && address <= 0xFFEE)
 	{
-		std::cout << "AAAA" << std::endl;
 		cpu.HRAM.at(address - 0xFF80) = data;
 	}
 

@@ -178,13 +178,13 @@ public:
 			do
 			{
 				GB.clock();
-			} while ((GB.cpu.IF & 0x02) == 0);
-			while (GB.cpu.IF == 0);
+			} while (GB.cpu.pc != 0xC000);
 			//Also clock out remaining ticks for other devices connected to the bus
 			do
 			{
 				GB.clock();
 			} while (GB.cpu.complete());
+			
 			bRuntoBreak = false;
 		}
 

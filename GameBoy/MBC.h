@@ -28,5 +28,9 @@ public:
 	//Set number of banks
 	void setRamBanks(uint8_t Banks);
 	void setMemoryBanks(uint8_t Banks);
+
+public:
+	//Utility bool for testing
+	bool WriteToRamEnable = false;
 };
 
