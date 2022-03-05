@@ -17,9 +17,6 @@ SM83_PPU::SM83_PPU()
 	//LCDscreen.fill(0xFFFFFFFF);
 
 	STAT.modeFlag = 2; //OAM Scan first
-
-	vOAMObjects.resize(10); //Maximum 10 objects in OAM scan
-
 }
 
 SM83_PPU::~SM83_PPU()
@@ -197,14 +194,14 @@ void SM83_PPU::clock()
 {
 	LY = scanLine; //Give value to LY register
 
-	if(scanLine == 0) bFrameComplete = false;
+	if(scanLine == 0) bFrameComplete = false; //Reset frame complete
 
 	//Update the LYC = LY flag
 	if (LY == LYC) STAT.LYFlag = 1;
 	else STAT.LYFlag = 0;
 
 	//LYC = LY stat interrupt:
-	if (!bStatInterruptBlock && STAT.LY == 1)
+	if (!bStatInterruptBlock && STAT.LY == 1 && (dots % 456) == 0)
 	{
 		if (STAT.LYFlag == 1)
 		{
@@ -268,13 +265,14 @@ void SM83_PPU::Mode0()
 		X = 0;
 		x = 0;
 		pixels = 0;
+		vOAMObjects.clear(); //Clear vOAMObjects
 	}
 
 	if ((dots % 456) == 455) 
 	{
-		if (scanLine == 143) STAT.modeFlag = 1; //Go to VBlank
-		else if (scanLine < 143) STAT.modeFlag = 2; //Go to OAM scan
 		scanLine++; //Increment scanLine
+		if (scanLine == 144) STAT.modeFlag = 1; //Go to VBlank
+		else if (scanLine < 144) STAT.modeFlag = 2; //Go to OAM scan
 	}	
 }
 
@@ -282,7 +280,7 @@ void SM83_PPU::Mode0()
 void SM83_PPU::Mode1()
 {
 	//Request interrupts when entering VBlank
-	if (scanLine == 144)
+	if (scanLine == 144 && (dots % 456) == 0)
 	{
 		bus->cpu.irqVBlank();
 		if (!bStatInterruptBlock && STAT.VBlank == 1)
@@ -315,6 +313,7 @@ void SM83_PPU::Mode2()
 {
 	if ((dots % 456) == 79)
 	{
+		
 		int nOAMs = 0; //For counting sprites
 
 		struct OAMobject sOAMobject;
@@ -342,7 +341,7 @@ void SM83_PPU::Mode2()
 				nOAMs++;
 			}
 		}
-
+		
 		STAT.modeFlag = 3; //Go to mode 3
 		nPauseDots = SCX & 0x7; //Read SCX to find how many dots to pause
 	}
@@ -356,16 +355,17 @@ void SM83_PPU::Mode3()
 	if (LCDC.WindowEnable == 1 && LCDC.BGAndWindowPriority == 1)
 	{
 		//When entering window, destroy the current pixel FIFO
-		if ((WX - 7) == x && WY == scanLine)
+		if ((WX - 7) == x && WY == scanLine && bEnteringWindow == false)
 		{
 			//Destroy current pixel FIFO:
-			BGPixelFIFO = 0x0000;
+			BGPixelFIFO = 0x00000000;
 			pixels = 0;
 			bMapArea = LCDC.WindowsTileMapArea;
 			//X and Y coordinate equal fetcher's coordinates
 			XX = X;
 			YY = scanLine;
-			
+			Fetcher = 0; //Fetcher reset to step 1
+			bEnteringWindow = true;
 		}
 		else if ((WX - 7) < x && WY < scanLine)
 		{
@@ -373,6 +373,7 @@ void SM83_PPU::Mode3()
 			//X and Y coordinate equal fetcher's coordinates
 			XX = X;
 			YY = scanLine;
+			bEnteringWindow = false; //No longer entering window
 		}
 		//Background rendering
 		else if ((WX - 7) > x && WY > scanLine)
@@ -391,13 +392,40 @@ void SM83_PPU::Mode3()
 		YY = (scanLine + SCY) & 0xFF;
 	}
 
+	/*
+	//Object rendering
+	if (LCDC.OBJEnable == 1)
+	{
+		//Loop through sprites from OAM scan
+		for (int nSprites = 0; nSprites < vOAMObjects.size(); nSprites++)
+		{
+			if ((vOAMObjects.at(nSprites).Xpos - 8) <= x && x < vOAMObjects.at(nSprites).Xpos && SpriteIndex != nSprites && bFetchObj == false)
+			{
+				SpriteIndex = nSprites;
+				bPauseRender = true;
+				bFetchObj = true;
+				Fetcher = 0; //Start Fetching OBJ data
+				break;
+			}
+
+			else if (bFetchObj = false)
+			{
+				bPauseRender = false;
+			}
+		}
+	}
+	*/
+
 	//FIFO Pixel Fetcher:
 	switch (Fetcher)
 	{
 	case 0: //Get Tile
 		if (cycles == 0)
 		{
-			tileRowAddress = getTile(XX, YY, bMapArea); //Gets the address of low byte tile row
+			//Gets the address of low byte tile row
+			if (bFetchObj) tileRowAddress = getTile(XX, YY, bMapArea, true);
+			else tileRowAddress = getTile(XX, YY, bMapArea);
+
 			cycles = 2;
 			Fetcher = 1; //Next, get low byte data
 		}
@@ -410,25 +438,41 @@ void SM83_PPU::Mode3()
 			Fetcher = 2; //Next, get high byte data
 		}
 		break;
-	case 2: //getTileDataLow
+	case 2: //getTileDataHigh
 		if (cycles == 0)
 		{
 			getTileDataHigh(tileRowAddress);
 			cycles = 2;
 			Fetcher = 3; //Next, sleep or push
-			BGPixelFIFObuffer = 0x0000;
-			//Give data to buffer:
-			for (int i = 7; i >= 0; i--)
+
+			if (!bFetchObj)
 			{
-				uint16_t bits = ((TileDataHigh & (1 << i)) << (8 + (7 - i))) | ((TileDataLow & (1 << i)) << (8 + (6 - i)));
-				BGPixelFIFObuffer |= (bits >> 2 * (7 - i));
+				BGPixelFIFOLatch = 0x0000;
+				//Give data to BGpixelFIFOlatch:
+				for (int i = 7; i >= 0; i--)
+				{
+					uint16_t bits = ((TileDataHigh & (1 << i)) << (8 + (7 - i))) | ((TileDataLow & (1 << i)) << (8 + (6 - i)));
+					BGPixelFIFOLatch |= (bits >> 2 * (7 - i));
+				}
+				//Also push if allowed
+				if (pixels <= 8)
+				{
+					BGPixelFIFO |= BGPixelFIFOLatch;
+					X++; //increment fetcher coordinate
+					pixels += 8;
+					Fetcher = 0; //Return to fetcher step 1
+				}
 			}
-			//Also push if allowed
-			if (pixels <= 0)
+			else
 			{
-				BGPixelFIFO |= BGPixelFIFObuffer;
-				X++; //increment fetcher coordinate
-				pixels += 8;
+				//Give data to OBJPixelFIFO
+				for (int i = 7; i >= 0; i--)
+				{
+					uint16_t bits = ((TileDataHigh & (1 << i)) << (8 + (7 - i))) | ((TileDataLow & (1 << i)) << (8 + (6 - i)));
+					OBJPixelFIFO |= (bits >> 2 * (7 - i));
+				}
+
+				//Pixel Mixing
 			}
 		}
 		break;
@@ -436,9 +480,9 @@ void SM83_PPU::Mode3()
 		if (cycles == 0)
 		{
 			cycles = 1;
-			if (pixels <= 0)
+			if (pixels <= 8)
 			{
-				BGPixelFIFO |= BGPixelFIFObuffer;
+				BGPixelFIFO |= BGPixelFIFOLatch;
 				pixels += 8;
 				X++; //increment fetcher coordinate
 				Fetcher = 0; //Go back to get tile
@@ -452,13 +496,14 @@ void SM83_PPU::Mode3()
 	cycles--; //Decrement cycles
 
 
-	//Pop pixel to LCD only if the number of pixels is over 0
-	if (pixels > 0)
+	//Pop pixel to LCD only if the number of pixels is over 8
+	if (pixels > 8)
 	{
 		//At the beginning of a scanline throw away pixel equal to the 3 lower bits of SCX ie. pause for the value of SCX
 		if (nPauseDots == 0) {
-			colorIndex = (BGPixelFIFO & 0xC000) >> 14;
+			colorIndex = (BGPixelFIFO & 0xC0000000) >> 30;
 			argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+			if (LCDC.BGAndWindowPriority == 0) argb = palettes.at(0); //Background and Window disabled
 			LCDscreen.at(x + 160 * scanLine) = argb;
 			BGPixelFIFO <<= 2;
 			x++; //increment x coordinate
@@ -470,6 +515,8 @@ void SM83_PPU::Mode3()
 		}
 		pixels--; //Decrement pixels
 	}
+	
+	//std::cout << (int) pixels << std::endl;
 
 	if (x == 160)//Hblank
 	{
@@ -478,20 +525,32 @@ void SM83_PPU::Mode3()
 }
 
 //Gets the TileID from tilemap
-uint16_t SM83_PPU::getTile(uint8_t X, uint8_t Y, bool bMapArea)
+uint16_t SM83_PPU::getTile(uint8_t X, uint8_t Y, bool bMapArea, bool bFetchObject)
 {
 	uint8_t tileID = 0x00;
 	uint8_t TileY = Y >> 3; //Get tile Y coordinate in map	
 	uint8_t TileRow = Y & 0x7; //Get tile row
-	if (bMapArea == 1)
+
+	if (bFetchObject)
 	{
-		tileID = ppuRead(0x9C00 + X + 32 * TileY);
-		return getTileMap(tileID, TileRow);
+		if (LCDC.OBJSize == 0) tileID = vOAMObjects.at(SpriteIndex).TileIndex;
+		else tileID = vOAMObjects.at(SpriteIndex).TileIndex >> 1;
+		TileRow = scanLine - (vOAMObjects.at(SpriteIndex).Ypos - 16);
+
+		return getTileMap(tileID, TileRow, true);
 	}
 	else
 	{
-		tileID = ppuRead(0x9800 + X + 32 * TileY);
-		return getTileMap(tileID, TileRow);
+		if (bMapArea == 1)
+		{
+			tileID = ppuRead(0x9C00 + X + 32 * TileY);
+			return getTileMap(tileID, TileRow);
+		}
+		else
+		{
+			tileID = ppuRead(0x9800 + X + 32 * TileY);
+			return getTileMap(tileID, TileRow);
+		}
 	}
 
 }
@@ -509,23 +568,38 @@ void SM83_PPU::getTileDataHigh(uint16_t address)
 }
 
 //Gets the address in VRAM of the low byte of the tile row from Tile ID
-uint16_t SM83_PPU::getTileMap(uint8_t tileID, uint8_t row)
+uint16_t SM83_PPU::getTileMap(uint8_t tileID, uint8_t row, bool bFetchObject)
 {
 	uint16_t startAddress = 0x0000;
 	uint16_t lowAddress = 0x0000;
-	if (LCDC.BGAndWindowTileDataArea == 1)
+	if (bFetchObject)
 	{
 		startAddress = 0x0000;
-		lowAddress = startAddress + (2 * row) + 16 * tileID;
+		if (LCDC.OBJSize == 0)
+			lowAddress = startAddress + (2 * row) + 16 * tileID;
+		else
+			lowAddress = startAddress + (2 * row) + 32 * tileID;
 	}
 	else
 	{
-		startAddress = 0x1000;
-		lowAddress = startAddress + (2 * row) + 16 * (int8_t)tileID;
+		if (LCDC.BGAndWindowTileDataArea == 1)
+		{
+			startAddress = 0x0000;
+			lowAddress = startAddress + (2 * row) + 16 * tileID;
+		}
+		else
+		{
+			startAddress = 0x1000;
+			lowAddress = startAddress + (2 * row) + 16 * (int8_t)tileID;
+		}
 	}
-	
 	return lowAddress;
 
+}
+
+uint8_t SM83_PPU::GetOBJFlag(OBJFLAGS f, OAMobject sOAMobject)
+{
+	return ((sOAMobject.TileIndex & f) > 1) ? 0x1 : 0x0;
 }
 
 

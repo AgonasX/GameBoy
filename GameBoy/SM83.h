@@ -240,6 +240,7 @@ private:
 	public:
 		//Disassembler
 		std::map<uint8_t, std::string> instrMap;
+		std::map<uint8_t, std::string> PrefixInstrMap;
 		void initializeInstrMap();
 #endif // DEBUG
 

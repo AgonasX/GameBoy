@@ -178,7 +178,7 @@ public:
 			do
 			{
 				GB.clock();
-			} while (GB.cpu.pc != 0xC000);
+			} while ((GB.ppu.scanLine !=8 ));
 			//Also clock out remaining ticks for other devices connected to the bus
 			do
 			{
@@ -311,15 +311,16 @@ void GameBoy::drawInstr(int X, int Y)
 
 	//Interrupts
 	DrawString(X + 125, Y + 70, "IME", GB.cpu.IME ? olc::GREEN : olc::RED);
-	DrawString(X + 100, Y + 80, "IE: " + bin(GB.cpu.IE,4));
-	DrawString(X + 100, Y + 90, "IF: " + bin(GB.cpu.IF,4));
+	DrawString(X + 100, Y + 80, "IE: " + bin(GB.cpu.IE,5));
+	DrawString(X + 100, Y + 90, "IF: " + bin(GB.cpu.IF,5));
 
 	//PPU
 	DrawString(X + 125, Y + 130, "PPU Enable", GB.ppu.LCDC.PPUEnable == 1 ? olc::GREEN : olc::RED);
-	DrawString(X + 100, Y + 140, "BG/Window Area:" + hex(GB.ppu.LCDC.BGAndWindowTileDataArea, 2));
-	DrawString(X + 100, Y + 150, "BG Area:" + hex(GB.ppu.LCDC.BGTileMapArea,2));
-	DrawString(X + 100, Y + 160, "Window Area:" + hex(GB.ppu.LCDC.WindowsTileMapArea, 2));
-	DrawString(X + 100, Y + 170, "STAT = " + bin(GB.ppu.STAT.reg, 8));
+	DrawString(X + 125, Y + 140, "BG Window Enable", GB.ppu.LCDC.BGAndWindowPriority == 1 ? olc::GREEN : olc::RED);
+	DrawString(X + 100, Y + 150, "BG/Window Area:" + hex(GB.ppu.LCDC.BGAndWindowTileDataArea, 2));
+	DrawString(X + 100, Y + 160, "BG Area:" + hex(GB.ppu.LCDC.BGTileMapArea,2));
+	DrawString(X + 100, Y + 170, "Window Area:" + hex(GB.ppu.LCDC.WindowsTileMapArea, 2));
+	DrawString(X + 100, Y + 180, "STAT = " + bin(GB.ppu.STAT.reg, 8));
 	
 
 

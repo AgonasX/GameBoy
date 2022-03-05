@@ -57,27 +57,43 @@ private:
 public:
 	//Pixel FIFO and screen
 	std::array<uint32_t, 23040> LCDscreen;
-	uint16_t PixelFIFO = 0x0000;
-	uint16_t OAMFIFO = 0x0000;
-	uint16_t BGPixelFIFO = 0x0000;
-	uint16_t BGPixelFIFObuffer = 0x0000; //Buffer for when BG pixel FIFO needs it
+	uint16_t OBJPixelFIFO = 0x0000;
+	uint8_t PixelFIFO = 0x0000; //Information about wether it is background (0) or object (1) pixels 
+	uint32_t BGPixelFIFO = 0x00000000;
+	uint16_t BGPixelFIFOLatch = 0x0000; //Latch for when BG pixel FIFO needs it
 
 private:
 	//FIFO pixel fetcher
 	int pixels = 0; //Number of pixels in the pixel FIFO 
-	uint16_t getTile(uint8_t X, uint8_t Y, bool bMapArea); //Get tile
+	uint16_t getTile(uint8_t X, uint8_t Y, bool bMapArea, bool bFetchObject = false); //Get tile
 	uint16_t tileRowAddress = 0x0000;
 	void getTileDataLow(uint16_t address);
 	uint8_t TileDataLow = 0x00;
 	void getTileDataHigh(uint16_t address);
 	uint8_t TileDataHigh = 0x00;
-	uint16_t getTileMap(uint8_t tileID, uint8_t y);
+	uint16_t getTileMap(uint8_t tileID, uint8_t y, bool bFetchObject = false);
 	bool bMapArea = 1;
 	int Fetcher = 0; //Fetcher, 0 = get tile, 1 = getTileDataLow, 2 = getTileDataHigh, 3 = push / sleep
 
 	//For getting correct palett
 	uint8_t colorIndex = 0x00;
 	uint32_t argb = 0x00000000;
+
+	//Window rendering
+	bool bEnteringWindow = false;
+
+	//Sprite (OBJ) rendering 
+	bool bPauseRender = false;
+	bool bFetchObj = false;
+	int SpriteIndex = -1;
+	void AbortSpriteFetch();
+
+	enum OBJFLAGS
+	{
+		XFlip = (1 << 5), //X flip
+		YFlip = (1 << 6), //Y flip
+		OBJPriority = (1 << 7) //BG and Window over OBJ (0=No, 1=BG and Window colors 1-3 over the OBJ)
+	};
 
 public:
 	//PPU registers
@@ -181,8 +197,6 @@ private:
 	std::array<uint32_t, 4> palettes = { 0x00 };
 	bool bStatInterruptBlock = false; //Variable needed to emulate STAT blocking behaviour
 	int nPauseDots = 0; //Pause cycles for scrolling
-
-
-
+	uint8_t GetOBJFlag(OBJFLAGS f, OAMobject sOAMobject); //Easy way to get OBJ flags
 };
 

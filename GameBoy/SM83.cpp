@@ -137,7 +137,7 @@ void SM83::irHandler()
 //Do one cpu clock tick.
 void SM83::clock()
 {
-	if (cycles == 0)
+	if (cycles <= 0)
 	{
 		//Handle HALT instruction first
 		if (HALTFlag == true)
@@ -145,8 +145,8 @@ void SM83::clock()
 			cycles--;
 			if ((IE & IF) == 0)
 			{
-				cycles = 3;
-				return; //Wait one M-cycle
+				cycles = 3; //Wait one M-cycle
+				return; 
 			}
 			else
 			{
@@ -177,7 +177,7 @@ void SM83::clock()
 
 		cycles *= 4; //Get T-cycles from M-cycles
 
-		cycles--; //Decrement one cycle
+		cycles--; //Decrement one T-cycle
 	}
 	else 
 		cycles--;
@@ -742,7 +742,7 @@ void SM83::operatePrefix(uint8_t opcode)
 }
 
 //--------------------------------------------------------------------------------------------------------------------------//
-//-----------------------------------------cpu instruction function definitions here:---------------------------------------//
+//-----------------------------------------CPU instruction function definitions here:---------------------------------------//
 //--------------------------------------------------------------------------------------------------------------------------//
 
 //Load instructions:
@@ -2077,7 +2077,7 @@ void SM83::HALT()
 	if ((IE & IF) > 0 && IME == false)
 		HALTBug = true;
 	
-	cycles = 1;
+	cycles = 0;
 }
 
 #ifdef DEBUG
