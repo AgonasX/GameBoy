@@ -187,9 +187,10 @@ public:
 			do
 			{
 				GB.clock();
-			} while ((GB.ppu.x != 0x58) || (GB.ppu.scanLine != 0x28));
+			} //while ((GB.ppu.x != 0x58) || (GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.LCDC.WindowEnable == 0));
+			while ((GB.ppu.LCDC.PPUEnable == 0));
 			
 			//Also clock out remaining ticks for other devices connected to the bus
 			/*
@@ -245,6 +246,7 @@ void GameBoy::DrawTileData(int X, int Y)
 		DrawRect(0 + X, 64 + Y, 127, 128, olc::BLACK);
 	}
 }
+
 
 void GameBoy::DrawTileMap0(int X, int Y)
 {

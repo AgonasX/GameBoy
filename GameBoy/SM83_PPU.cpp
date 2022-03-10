@@ -40,7 +40,7 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 		BGP.reg = data;
 	if (address == 0xFF48) //OBP0 palett data
 		OBP0.reg = data;
-	if (address == 0xFF48) //OBP1 palett data
+	if (address == 0xFF49) //OBP1 palett data
 		OBP1.reg = data;
 
 	//LCD 
@@ -274,6 +274,7 @@ void SM83_PPU::Mode0()
 		x = 0;
 		pixels = 0;
 		vOAMObjects.clear(); //Clear vOAMObjects
+		vSpriteIndex.clear(); //Clear Sprite index vector
 		//Clear Pixel FIFO
 		BGPixelFIFO = 0x00000000;
 		PixelFIFO = 0x00;
@@ -352,7 +353,6 @@ void SM83_PPU::Mode2()
 
 				vOAMObjects.push_back(sOAMobject);
 				nOAMs++;
-
 			}
 		}
 		
@@ -413,14 +413,14 @@ void SM83_PPU::Mode3()
 		YY = (scanLine + SCY) & 0xFF;
 	}
 
-	/*
+	
 	//Object rendering
-	if (LCDC.OBJEnable == 1)
+	if (LCDC.OBJEnable == 1 && pixels >= 8)
 	{
 		//Loop through sprites from OAM scan
 		for (int nSprites = 0; nSprites < vOAMObjects.size(); nSprites++)
 		{
-			if ((vOAMObjects.at(nSprites).Xpos - 8) <= x && x < vOAMObjects.at(nSprites).Xpos && bFetchObj == false)
+			if ((vOAMObjects.at(nSprites).Xpos - 8) <= x && x < vOAMObjects.at(nSprites).Xpos && !bFetchObj)
 			{
 				//Process each relevant sprites only once
 				if (std::find(vSpriteIndex.begin(), vSpriteIndex.end(), nSprites) == vSpriteIndex.end())
@@ -434,10 +434,14 @@ void SM83_PPU::Mode3()
 					//X and Y coordinate equal fetcher's coordinates
 					XX = X;
 					YY = scanLine;
+
+					//Reset values
+					OBJPixelFIFO = 0;
 					break;
 				}
 
-				else //We don't find any more objects, so unpause render
+				//No more objects found, so unpause render
+				else 
 				{
 					if (bFetchObj == false) bPauseRender = false;
 				}
@@ -446,7 +450,7 @@ void SM83_PPU::Mode3()
 	}
 	else 
 		bPauseRender = false;
-	*/
+	
 
 	//FIFO Pixel Fetcher:
 	switch (Fetcher)
@@ -539,12 +543,14 @@ void SM83_PPU::Mode3()
 								{
 									PaletteNum |= (1 << i);
 								}
+								else
+									PaletteNum &= ~(1 << i);
 							}
 						}
 					}
 					else //OBJ priority 1, BG and Window colors 1-3 over the OBJ
 					{
-						colorIndex = BGPixelFIFO & (0x3 << (2 * i + 16));
+						colorIndex = (BGPixelFIFO & (0x3 << (2 * i + 16))) >> (2 * i + 16);
 						if (((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex) == 0)
 						{
 							if ((PixelFIFO & (1 << i)) == 0) //Check if we already have a object pixel
@@ -559,6 +565,8 @@ void SM83_PPU::Mode3()
 								{
 									PaletteNum |= (1 << i);
 								}
+								else
+									PaletteNum &= ~(1 << i);
 							}
 						}
 					}
@@ -616,7 +624,7 @@ void SM83_PPU::Mode3()
 					if ((PaletteNum & 0x80) == 0)
 						argb = palettes.at((OBP0.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
 					//OBP1
-					else 
+					else
 						argb = palettes.at((OBP1.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
 				}
 
@@ -632,7 +640,6 @@ void SM83_PPU::Mode3()
 			PixelFIFO <<= 1;
 			PaletteNum <<= 1;
 			pixels--; //Decrement pixels
-			vSpriteIndex.clear(); //Clear Sprite index vector
 		}
 	}
 	
@@ -666,7 +673,7 @@ uint16_t SM83_PPU::getTile(uint8_t X, uint8_t Y, bool bMapArea, bool bFetchObjec
 		}
 		else
 		{
-			tileID = vOAMObjects.at(SpriteIndex).TileIndex >> 1;
+			tileID = vOAMObjects.at(SpriteIndex).TileIndex & 0xFE;
 			OBJSize = 15;
 		}
 		//YFLip
@@ -697,6 +704,7 @@ uint16_t SM83_PPU::getTile(uint8_t X, uint8_t Y, bool bMapArea, bool bFetchObjec
 void SM83_PPU::getTileDataLow(uint16_t address)
 {
 	TileDataLow = VRAM.at(address);
+	
 }
 
 //Get high byte of tile data
@@ -716,7 +724,9 @@ uint16_t SM83_PPU::getTileMap(uint8_t tileID, uint8_t row, bool bFetchObject)
 		if (LCDC.OBJSize == 0)
 			lowAddress = startAddress + (2 * row) + 16 * tileID;
 		else
-			lowAddress = startAddress + (2 * row) + 32 * tileID;
+			lowAddress = startAddress + (2 * row) + 16 * tileID;
+
+		
 	}
 	else
 	{
@@ -737,7 +747,7 @@ uint16_t SM83_PPU::getTileMap(uint8_t tileID, uint8_t row, bool bFetchObject)
 
 uint8_t SM83_PPU::GetOBJFlag(OBJFLAGS f, OAMobject sOAMobject)
 {
-	return ((sOAMobject.TileIndex & f) > 1) ? 0x1 : 0x0;
+	return ((sOAMobject.Flags & f) > 1) ? 0x1 : 0x0;
 }
 
 

@@ -1371,7 +1371,6 @@ int SM83::RESu3bHLb(uint8_t& u3)
 int SM83::SETu3r8(uint8_t& u3, uint8_t& r)
 {
 	r = r | (0x1 << u3);
-	std::cout << "ASD!!!"<< std::endl;
 	return 2;
 }
 
