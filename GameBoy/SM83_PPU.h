@@ -42,6 +42,9 @@ public:
 	uint8_t x = 0; //x position of pixels
 	uint8_t XX = 0; //X-coordinate
 	uint8_t YY = 0; //Y-coordinate
+	uint8_t WindowY = 0; //Window internal Y coordinate
+	uint8_t WindowX = 0; //Window internal X coordinate
+
 	int dots = 0;
 	int cycles = 0; //cycles to keep track of how many cycles to fetch data to pixel FIFO
 	bool bFrameComplete = false;
@@ -58,7 +61,7 @@ public:
 	//Pixel FIFO and screen
 	std::array<uint32_t, 23040> LCDscreen;
 	uint16_t OBJPixelFIFO = 0x0000;
-	uint8_t PixelFIFO = 0x0000; //Information about wether it is background (0) or object (1) pixels 
+	uint8_t PixelFIFO = 0x0000; //Information about whether it is background (0) or object (1) pixels 
 	uint32_t BGPixelFIFO = 0x00000000;
 	uint16_t BGPixelFIFOLatch = 0x0000; //Latch for when BG pixel FIFO needs it
 
@@ -80,16 +83,19 @@ private:
 	uint32_t argb = 0x00000000;
 
 	//Window rendering
-	bool bEnteringWindow = false;
+	bool bInWindow = false;
 
 	//Sprite (OBJ) rendering 
 	bool bPauseRender = false;
 	bool bFetchObj = false;
 	int SpriteIndex = -1;
+	std::vector<int> vSpriteIndex;
+	uint8_t PaletteNum = 0x00; //Emulator only register for Palette number information
 	void AbortSpriteFetch();
 
 	enum OBJFLAGS
 	{
+		PaletteNumber = (1 << 4), //PaletteNumber
 		XFlip = (1 << 5), //X flip
 		YFlip = (1 << 6), //Y flip
 		OBJPriority = (1 << 7) //BG and Window over OBJ (0=No, 1=BG and Window colors 1-3 over the OBJ)
@@ -146,6 +152,31 @@ public:
 		uint8_t reg;
 	} BGP;
 
+	//OBJ palett 0
+	union
+	{
+		struct
+		{
+			uint8_t index0 : 2;
+			uint8_t index1 : 2;
+			uint8_t index2 : 2;
+			uint8_t index3 : 2;
+		};
+		uint8_t reg;
+	} OBP0;
+
+	//OBJ palett 1
+	union
+	{
+		struct
+		{
+			uint8_t index0 : 2;
+			uint8_t index1 : 2;
+			uint8_t index2 : 2;
+			uint8_t index3 : 2;
+		};
+		uint8_t reg;
+	} OBP1;
 	
 private:
 	//LCD position and Scrolling
@@ -174,6 +205,12 @@ public:
 	std::array<uint32_t, 65536>& getTileMap1Data();
 	std::array<uint32_t, 65536> tileMap0 = { 0x00000000 };
 	std::array<uint32_t, 65536>& getTileMap0Data();
+
+	/*
+	//SpriteTable
+	std::array<uint32_t, 5120> SpriteMap;
+	std::array<uint32_t, 5120>& getSpriteMap();
+	*/
 
 private:
 	//PPU RAM

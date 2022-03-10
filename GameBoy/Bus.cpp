@@ -112,8 +112,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 //Clock the CPU and PPU 
 void Bus::clock()
 {
-	if((clockTicks & 0x1) == 1) cpu.clock(); //Clock cpu every two ticks
-	ppu.clock(); //Clock ppu every tick
+	if((clockTicks & 0x1) == 0) cpu.clock(); //Clock cpu every two ticks
+
+	//Clock PPU only when enabled
+	if(ppu.LCDC.PPUEnable == 1) ppu.clock(); //Clock ppu every tick
 	clockTicks++;
 }
 

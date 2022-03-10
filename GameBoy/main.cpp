@@ -20,6 +20,7 @@ private:
 	//Emulation stuff
 	bool bRunEmulator = false;
 	bool bStepEmulation = false;
+	bool bDotEmulation = false;
 	bool bRuntoBreak = false;
 	bool bRun2500 = false;
 	bool bRun60fps = false;
@@ -102,6 +103,7 @@ public:
 		if (GetKey(olc::Key::T).bHeld) { bRunEmulator = false; bRun2500 = true; } //Run emulation
 		if (GetKey(olc::Key::B).bPressed) bRuntoBreak = true;
 		if (GetKey(olc::Key::SPACE).bPressed) bStepEmulation = true;
+		if (GetKey(olc::Key::N).bPressed) bDotEmulation = true;
 		if (GetKey(olc::Key::ENTER).bPressed) bRun60fps = true;
 
 		//Interrupts
@@ -149,6 +151,7 @@ public:
 				} while (!GB.cpu.complete());
 				bStepEmulation = false;
 
+
 				//Also clock out remaining ticks for other devices connected to the bus
 				do
 				{
@@ -157,9 +160,15 @@ public:
 			}
 		}
 
+		//One dot at the time
+		if (!bRunEmulator)
+		{
+			if (bDotEmulation) GB.clock();
+			bDotEmulation = false;
+		}
 
 		//Run 2500 instructions at a time
-		int instr = 1000;
+		int instr = 10;
 		if (bRun2500)
 		{
 			while (instr > 0)
@@ -178,12 +187,17 @@ public:
 			do
 			{
 				GB.clock();
-			} while ((GB.ppu.scanLine !=8 ));
+			} while ((GB.ppu.x != 0x58) || (GB.ppu.scanLine != 0x28));
+			//while ((GB.ppu.scanLine != 0x28));
+			//while ((GB.ppu.LCDC.WindowEnable == 0));
+			
 			//Also clock out remaining ticks for other devices connected to the bus
+			/*
 			do
 			{
 				GB.clock();
 			} while (GB.cpu.complete());
+			*/
 			
 			bRuntoBreak = false;
 		}

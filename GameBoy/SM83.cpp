@@ -130,7 +130,9 @@ void SM83::irHandler()
 			write(sp, pc & 0x00FF);
 			pc = 0x0060;
 		}
-		cycles += 5;
+		//TODO: 
+		//Comment out Interrupt handler cycles for now, to be investigated later if this is necessary
+		//cycles += 5;
 	}
 }
 
@@ -145,7 +147,7 @@ void SM83::clock()
 			cycles--;
 			if ((IE & IF) == 0)
 			{
-				cycles = 3; //Wait one M-cycle
+				cycles = 0; //No waiting
 				return; 
 			}
 			else
@@ -161,7 +163,7 @@ void SM83::clock()
 
 		//std::cout << "program counter: " << (std::hex) << " 0x" << (int)pc << std::endl;
 		//std::cout << "A = " << (std::hex) << " 0x" << (int)A << std::endl;
-
+		
 
 		//If the opcode is prefixed by CB, the opcode is in a different bank of instructions
 		if (opcode == 0xCB)
@@ -732,13 +734,14 @@ void SM83::operatePrefix(uint8_t opcode)
 		break;
 	}
 
+	/*
 	//HALT bug
 	if (HALTBug == true)
 	{
 		pc = pcBug;
 		HALTBug = false;
 	}
-
+	*/
 }
 
 //--------------------------------------------------------------------------------------------------------------------------//

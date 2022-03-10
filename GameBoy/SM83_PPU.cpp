@@ -29,8 +29,6 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 	if (0x8000 <= address && address <= 0x9FFF)
 	{
 		VRAM.at(address - 0x8000) = data;
-		//if(address >= 0x9C00)
-		//std::cout << (std::hex) << "0x" << (int)VRAM.at(address - 0x8000) << std::endl;
 	}
 
 	//OAM
@@ -40,6 +38,10 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 	//Palett registers
 	if (address == 0xFF47) //BG palett data
 		BGP.reg = data;
+	if (address == 0xFF48) //OBP0 palett data
+		OBP0.reg = data;
+	if (address == 0xFF48) //OBP1 palett data
+		OBP1.reg = data;
 
 	//LCD 
 	if (address == 0xFF40) //LCD Control (LCDC)
@@ -79,6 +81,12 @@ uint8_t SM83_PPU::ppuRead(uint16_t address)
 	//Palett registers
 	if (address == 0xFF47) //BG palett data
 		data = BGP.reg;
+	//Palett registers
+	if (address == 0xFF48) //OBP0 palett data
+		data = OBP0.reg;
+	//Palett registers
+	if (address == 0xFF49) //OBP1 palett data
+		data = OBP1.reg;
 
 	//LCD 
 	if (address == 0xFF40) //LCD Control (LCDC)
@@ -266,6 +274,10 @@ void SM83_PPU::Mode0()
 		x = 0;
 		pixels = 0;
 		vOAMObjects.clear(); //Clear vOAMObjects
+		//Clear Pixel FIFO
+		BGPixelFIFO = 0x00000000;
+		PixelFIFO = 0x00;
+		PaletteNum = 0x00;
 	}
 
 	if ((dots % 456) == 455) 
@@ -300,6 +312,7 @@ void SM83_PPU::Mode1()
 			STAT.modeFlag = 2; //Go to OAM scan
 			//Reset values
 			scanLine = 0;
+			WindowY = 0;
 			LY = 0;
 			dots = 0;
 			bFrameComplete = true;
@@ -339,11 +352,12 @@ void SM83_PPU::Mode2()
 
 				vOAMObjects.push_back(sOAMobject);
 				nOAMs++;
+
 			}
 		}
 		
 		STAT.modeFlag = 3; //Go to mode 3
-		nPauseDots = SCX & 0x7; //Read SCX to find how many dots to pause
+		nPauseDots = (SCX & 0x7); //Read SCX to find how many dots to pause 
 	}
 }
 	
@@ -351,42 +365,49 @@ void SM83_PPU::Mode2()
 //Pixel transfer 
 void SM83_PPU::Mode3()
 {
+	//LCDC.WindowEnable = 0; //Force disable Window rendering
+
+
 	//Window/Background Rendering:
-	if (LCDC.WindowEnable == 1 && LCDC.BGAndWindowPriority == 1)
+	if (LCDC.WindowEnable == 1)
 	{
 		//When entering window, destroy the current pixel FIFO
-		if ((WX - 7) == x && WY == scanLine && bEnteringWindow == false)
+		if ((WX - 7) == x && WY <= scanLine && !bInWindow)
 		{
 			//Destroy current pixel FIFO:
 			BGPixelFIFO = 0x00000000;
 			pixels = 0;
 			bMapArea = LCDC.WindowsTileMapArea;
-			//X and Y coordinate equal fetcher's coordinates
-			XX = X;
-			YY = scanLine;
+			//X and Y coordinate equal Window's internal coordinate
+			XX = WindowX;
+			YY = WindowY;
 			Fetcher = 0; //Fetcher reset to step 1
-			bEnteringWindow = true;
+			bInWindow = true;	
 		}
-		else if ((WX - 7) < x && WY < scanLine)
+		else if ((WX - 7) <= x && WY <= scanLine && bInWindow)
 		{
 			bMapArea = LCDC.WindowsTileMapArea;
 			//X and Y coordinate equal fetcher's coordinates
-			XX = X;
-			YY = scanLine;
-			bEnteringWindow = false; //No longer entering window
+			XX = WindowX;
+			YY = WindowY;
+			bInWindow = true;
+			
 		}
 		//Background rendering
-		else if ((WX - 7) > x && WY > scanLine)
+		else
 		{
+		bInWindow = false;
 		bMapArea = LCDC.BGTileMapArea;
 		XX = ((SCX >> 3) + X) & 0x1F;
 		YY = (scanLine + SCY) & 0xFF;
 		}
 
 	}
+
 	//Background rendering, windows disabled
-	else if(LCDC.BGAndWindowPriority == 1)
+	else if(LCDC.WindowEnable == 0)
 	{
+		bInWindow = false;
 		bMapArea = LCDC.BGTileMapArea;
 		XX = ((SCX >> 3) + X) & 0x1F;
 		YY = (scanLine + SCY) & 0xFF;
@@ -399,21 +420,32 @@ void SM83_PPU::Mode3()
 		//Loop through sprites from OAM scan
 		for (int nSprites = 0; nSprites < vOAMObjects.size(); nSprites++)
 		{
-			if ((vOAMObjects.at(nSprites).Xpos - 8) <= x && x < vOAMObjects.at(nSprites).Xpos && SpriteIndex != nSprites && bFetchObj == false)
+			if ((vOAMObjects.at(nSprites).Xpos - 8) <= x && x < vOAMObjects.at(nSprites).Xpos && bFetchObj == false)
 			{
-				SpriteIndex = nSprites;
-				bPauseRender = true;
-				bFetchObj = true;
-				Fetcher = 0; //Start Fetching OBJ data
-				break;
-			}
+				//Process each relevant sprites only once
+				if (std::find(vSpriteIndex.begin(), vSpriteIndex.end(), nSprites) == vSpriteIndex.end())
+				{
+					SpriteIndex = nSprites;
+					vSpriteIndex.push_back(SpriteIndex);
+					bPauseRender = true;
+					bFetchObj = true;
 
-			else if (bFetchObj = false)
-			{
-				bPauseRender = false;
-			}
+					Fetcher = 0; //Start Fetching OBJ data
+					//X and Y coordinate equal fetcher's coordinates
+					XX = X;
+					YY = scanLine;
+					break;
+				}
+
+				else //We don't find any more objects, so unpause render
+				{
+					if (bFetchObj == false) bPauseRender = false;
+				}
+			}	
 		}
 	}
+	else 
+		bPauseRender = false;
 	*/
 
 	//FIFO Pixel Fetcher:
@@ -423,7 +455,7 @@ void SM83_PPU::Mode3()
 		if (cycles == 0)
 		{
 			//Gets the address of low byte tile row
-			if (bFetchObj) tileRowAddress = getTile(XX, YY, bMapArea, true);
+			if (bFetchObj == true) tileRowAddress = getTile(XX, YY, bMapArea, true);
 			else tileRowAddress = getTile(XX, YY, bMapArea);
 
 			cycles = 2;
@@ -458,21 +490,81 @@ void SM83_PPU::Mode3()
 				if (pixels <= 8)
 				{
 					BGPixelFIFO |= BGPixelFIFOLatch;
+
+					//If 0 pixels move the 8 pixels to the front
+					if (pixels == 0) BGPixelFIFO <<= 16;
+
 					X++; //increment fetcher coordinate
+					//Increment window coordinates
+					if (bInWindow)
+					{
+						WindowX++;
+					}
+
 					pixels += 8;
 					Fetcher = 0; //Return to fetcher step 1
+					
 				}
 			}
-			else
+			else //OBJ fetch and pixel mixing
 			{
 				//Give data to OBJPixelFIFO
 				for (int i = 7; i >= 0; i--)
 				{
 					uint16_t bits = ((TileDataHigh & (1 << i)) << (8 + (7 - i))) | ((TileDataLow & (1 << i)) << (8 + (6 - i)));
-					OBJPixelFIFO |= (bits >> 2 * (7 - i));
+					if(GetOBJFlag(XFlip,vOAMObjects.at(SpriteIndex)) == 0) 
+						OBJPixelFIFO |= (bits >> 2 * (7 - i));
+					else //XFlip
+						OBJPixelFIFO |= (bits >> 2 * i);
 				}
 
 				//Pixel Mixing
+				//Loop through 8 pixels
+				for (int i = 7; i >= 0; i--)
+				{
+					//Compare pixels
+					if (GetOBJFlag(OBJPriority, vOAMObjects.at(SpriteIndex)) == 0) //OBJ priority 0, draws over the background
+					{
+						if ((OBJPixelFIFO & (0x3 << 2 * i)) > 0) //Draw OBJ pixel only if OBJ color is not 0 (transparent)
+						{
+							if ((PixelFIFO & (1 << i)) == 0) //Check if we already have a object pixel
+							{
+								uint32_t BGPixelFIFOTemp = BGPixelFIFO & ~(0x3 << (2 * i + 16));
+								BGPixelFIFO = (OBJPixelFIFO & (0x3 << 2 * i)) << 16;
+								BGPixelFIFO |= BGPixelFIFOTemp;
+								PixelFIFO |= (1 << i);
+
+								//Palette number
+								if (GetOBJFlag(PaletteNumber, vOAMObjects.at(SpriteIndex)) == 1)
+								{
+									PaletteNum |= (1 << i);
+								}
+							}
+						}
+					}
+					else //OBJ priority 1, BG and Window colors 1-3 over the OBJ
+					{
+						colorIndex = BGPixelFIFO & (0x3 << (2 * i + 16));
+						if (((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex) == 0)
+						{
+							if ((PixelFIFO & (1 << i)) == 0) //Check if we already have a object pixel
+							{
+								uint32_t BGPixelFIFOTemp = BGPixelFIFO & ~(0x3 << (2 * i + 16));
+								BGPixelFIFO = (OBJPixelFIFO & (0x3 << 2 * i)) << 16;
+								BGPixelFIFO |= BGPixelFIFOTemp;
+								PixelFIFO |= (1 << i);
+
+								//Palette number
+								if (GetOBJFlag(PaletteNumber, vOAMObjects.at(SpriteIndex)) == 1)
+								{
+									PaletteNum |= (1 << i);
+								}
+							}
+						}
+					}
+				}
+				bFetchObj = false;
+				Fetcher = 0; //Go back to get tile
 			}
 		}
 		break;
@@ -483,8 +575,13 @@ void SM83_PPU::Mode3()
 			if (pixels <= 8)
 			{
 				BGPixelFIFO |= BGPixelFIFOLatch;
+
+				//If 0 pixels move the 8 pixels to the front
+				if (pixels == 0) BGPixelFIFO <<= 16;
+
 				pixels += 8;
 				X++; //increment fetcher coordinate
+				if (bInWindow) WindowX++; //Increment window coordinate
 				Fetcher = 0; //Go back to get tile
 			}
 		}
@@ -495,32 +592,61 @@ void SM83_PPU::Mode3()
 
 	cycles--; //Decrement cycles
 
-
 	//Pop pixel to LCD only if the number of pixels is over 8
 	if (pixels > 8)
 	{
-		//At the beginning of a scanline throw away pixel equal to the 3 lower bits of SCX ie. pause for the value of SCX
-		if (nPauseDots == 0) {
-			colorIndex = (BGPixelFIFO & 0xC0000000) >> 30;
-			argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
-			if (LCDC.BGAndWindowPriority == 0) argb = palettes.at(0); //Background and Window disabled
-			LCDscreen.at(x + 160 * scanLine) = argb;
-			BGPixelFIFO <<= 2;
-			x++; //increment x coordinate
-		}
-		else
+		//nPauseDots = 0;
+		if (!bPauseRender)
 		{
-			BGPixelFIFO <<= 2;
-			nPauseDots--;
+			//At the beginning of a scanline throw away pixel equal to the 3 lower bits of SCX. (If not in Window)
+			if (bInWindow) nPauseDots = 0;
+			if (nPauseDots == 0) {
+				colorIndex = (BGPixelFIFO & 0xC0000000) >> 30;
+				//Background rendering
+				if ((PixelFIFO & 0x80) == 0)
+				{
+					argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+
+					if (LCDC.BGAndWindowPriority == 0) argb = palettes.at(0); //Background and Window disabled
+				}
+				//Object rendering
+				else
+				{
+					//OBP0
+					if ((PaletteNum & 0x80) == 0)
+						argb = palettes.at((OBP0.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+					//OBP1
+					else 
+						argb = palettes.at((OBP1.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
+				}
+
+				LCDscreen.at(x + 160 * scanLine) = argb;
+				x++; //increment x coordinate
+			}
+			else
+			{
+				nPauseDots--;
+			}
+
+			BGPixelFIFO = BGPixelFIFO << 2;
+			PixelFIFO <<= 1;
+			PaletteNum <<= 1;
+			pixels--; //Decrement pixels
+			vSpriteIndex.clear(); //Clear Sprite index vector
 		}
-		pixels--; //Decrement pixels
 	}
 	
-	//std::cout << (int) pixels << std::endl;
+
 
 	if (x == 160)//Hblank
 	{
 		STAT.modeFlag = 0; //Go to mode 0
+		//Increment Window internal coordinates
+		if(bInWindow)
+		{
+			WindowY++;
+			WindowX = 0;
+		}
 	}
 }
 
@@ -533,9 +659,21 @@ uint16_t SM83_PPU::getTile(uint8_t X, uint8_t Y, bool bMapArea, bool bFetchObjec
 
 	if (bFetchObject)
 	{
-		if (LCDC.OBJSize == 0) tileID = vOAMObjects.at(SpriteIndex).TileIndex;
-		else tileID = vOAMObjects.at(SpriteIndex).TileIndex >> 1;
-		TileRow = scanLine - (vOAMObjects.at(SpriteIndex).Ypos - 16);
+		uint8_t OBJSize = 0;
+		if (LCDC.OBJSize == 0) {
+			tileID = vOAMObjects.at(SpriteIndex).TileIndex;
+			OBJSize = 7;
+		}
+		else
+		{
+			tileID = vOAMObjects.at(SpriteIndex).TileIndex >> 1;
+			OBJSize = 15;
+		}
+		//YFLip
+		if (GetOBJFlag(YFlip, vOAMObjects.at(SpriteIndex)) == 0)
+			TileRow = scanLine - (vOAMObjects.at(SpriteIndex).Ypos - 16);
+		else
+			TileRow = OBJSize - (scanLine - (vOAMObjects.at(SpriteIndex).Ypos - 16));
 
 		return getTileMap(tileID, TileRow, true);
 	}
@@ -722,3 +860,4 @@ std::array<uint32_t, 65536>& SM83_PPU::getTileMap0Data()
 	}
 	return tileMap0;
 }
+
