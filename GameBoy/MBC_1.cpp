@@ -50,13 +50,15 @@ void MBC_1::MBCWrite(uint16_t address, uint8_t data)
 	{
 		WriteToRamEnable = true;
 		RAMEnable = data;
-		std::cout << "RAM enabled?:" << (std::hex) << (int)RAMEnable << std::endl;
 		
 	}
 
 	//ROM bank number
-	if (0x2000 <= address && address <= 0x3FFF) 
+	if (0x2000 <= address && address <= 0x3FFF)
+	{
 		ROMBankNumber = data;
+		std::cout << "Rombankbumer: " <<(int)data << std::endl;
+	}
 
 	//RAM bank number
 	if (0x4000 <= address && address <= 0x5FFF) 

@@ -16,7 +16,7 @@ public:
 public:
 	//Devices on the bus
 	std::shared_ptr<Cartridge> cart; //Cartridge
-	std::array<uint8_t, 16383> WRAM = { 0x00 }; //16kB Work RAM
+	std::array<uint8_t, 8192> WRAM = { 0x00 }; //8192kB Work RAM
 	SM83 cpu; //CPU
 	SM83_PPU ppu; //PPU
 

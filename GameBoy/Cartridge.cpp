@@ -56,7 +56,7 @@ Cartridge::Cartridge(std::string fileName)
 	case 0x00: //No MBC
 		pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM);
 		break;
-	case 0x01: //MBC1 no RAM
+	case 0x01: //MBC1
 		pMBC = std::make_unique<MBC_1>(vPGRMemory, vRAM);
 		pMBC->setRamBanks(RAMsize >> 13); //Divide by 8KB to get number of RAM banks
 		pMBC->setMemoryBanks(0x2 << cartridgeType); //Memory banks are powers of 2

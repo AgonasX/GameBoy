@@ -4,6 +4,7 @@
 #include "SM83.h"
 #include "SM83_PPU.h"
 #include "Cartridge.h"
+#include "Disassembler.h"
 
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
@@ -55,6 +56,11 @@ private:
 	uint16_t pc = 0x00;
 	uint16_t a8 = 0x00;
 	uint16_t a16 = 0x0000;
+
+	//Disassembler
+private:
+	Disassembler disassem;
+	void DrawDisassembler(int X, int Y);
 #endif // DEBUG
 
 
@@ -73,12 +79,15 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/dmg-acid2.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/cpu_instrs.gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff
 		#ifdef DEBUG
 			GB.cpu.initializeInstrMap();
+			disassem.InitializeMaps();
+			disassem.LoadCart(cartridge);
+			disassem.ResizeVectors(20);
 		#endif // DEBUG
 
 		return true;
@@ -94,11 +103,12 @@ public:
 			DrawTileData(160, 0);
 			DrawTileMap0(0, 192);
 			DrawTileMap1(256, 192);
+			DrawDisassembler(588, 0);
 	#endif // DEBUG
 
 
 		//User input:
-			if (GetKey(olc::Key::P).bHeld) { bRunEmulator = false; bRun2500 = false; bRun60fps = false; } //Pause emulation
+		if (GetKey(olc::Key::P).bHeld) { bRunEmulator = false; bRun2500 = false; bRun60fps = false; } //Pause emulation
 		if (GetKey(olc::Key::R).bHeld) { bRunEmulator = true; bRun2500 = false; } //Run emulation
 		if (GetKey(olc::Key::T).bHeld) { bRunEmulator = false; bRun2500 = true; } //Run emulation
 		if (GetKey(olc::Key::B).bPressed) bRuntoBreak = true;
@@ -190,15 +200,17 @@ public:
 			} //while ((GB.ppu.x != 0x58) || (GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.LCDC.WindowEnable == 0));
-			while ((GB.ppu.LCDC.PPUEnable == 0));
+			//while ((GB.ppu.LCDC.PPUEnable == 0));
+			//while (GB.cpu.opcode != 0x17);
+			while (GB.cpu.pc != 0x07F1);
 			
 			//Also clock out remaining ticks for other devices connected to the bus
-			/*
+			
 			do
 			{
 				GB.clock();
 			} while (GB.cpu.complete());
-			*/
+			
 			
 			bRuntoBreak = false;
 		}
@@ -219,7 +231,7 @@ int main()
 	if (emulator.Construct(160, 144, 3, 3))
 		emulator.Start();
 #else
-	if (emulator.Construct(160 + 128 + 300, 192 + 256, 1, 1))
+	if (emulator.Construct(160 + 128 + 300 + 200, 192 + 256, 1, 1))
 		emulator.Start();
 #endif		
 	return 0;
@@ -348,6 +360,17 @@ void GameBoy::drawInstr(int X, int Y)
 	DrawString(X + 100, Y + 120, "[SP] Low: $" + hex(GB.cpu.read(GB.cpu.sp), 2));
 
 
+}
+void GameBoy::DrawDisassembler(int X, int Y)
+{
+	pc = GB.cpu.pc;
+	disassem.Disassemble(pc);
+	for (int i = 0; i < disassem.vInstrs.size(); i++)
+	{
+		DrawString(X + 3, (Y + 3) + 10 * i, disassem.vPC.at(i));
+		DrawString(X + 50, (Y + 3) + 10 * i, disassem.vData.at(i));
+		DrawString(X + 97, (Y + 3) + 10 * i, disassem.vInstrs.at(i));
+	}
 }
 #endif // DEBUG
 

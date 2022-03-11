@@ -143,6 +143,7 @@
   <ItemGroup>
     <ClCompile Include="Bus.cpp" />
     <ClCompile Include="Cartridge.cpp" />
+    <ClCompile Include="Disassembler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MBC.cpp" />
     <ClCompile Include="MBC_0.cpp" />
@@ -153,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="Bus.h" />
     <ClInclude Include="Cartridge.h" />
+    <ClInclude Include="Disassembler.h" />
     <ClInclude Include="MBC.h" />
     <ClInclude Include="MBC_0.h" />
     <ClInclude Include="MBC_1.h" />

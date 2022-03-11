@@ -19,17 +19,16 @@ uint8_t MBC_0::MBCRead(uint16_t address)
 		data = pPGRMemory->at(address);
 	}
 	return data;
+
+	if (0xA000 <= address && address <= 0xBFFF)
+		data = pRAM->at(address - 0xA000);
 }
 
 void MBC_0::MBCWrite(uint16_t address, uint8_t data)
 {
 
-	//No RAM, no writes
-
-	//pPGRMemory->at(address) = data; //Hacked in for testing
-	//std::cout << "DATA Mem: " << (std::hex) << "0x" << (int)pPGRMemory->at(address) << std::endl;
-	//std::cout << "ADDRESS: " << (std::hex) << "0x" << (int)address << std::endl;
-	//std::cout << "DATA: " << (std::hex) << "0x" << (int)data << std::endl;
+	if (0xA000 <= address && address <= 0xBFFF)
+		pRAM->at(address - 0xA000) = data;
 }
 
 

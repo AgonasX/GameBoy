@@ -45,8 +45,10 @@ uint8_t Bus::cpuRead(uint16_t address)
 
 
 	//WRAM
-	if (0xC000 <= address && address <= 0xFDFF)
-		data = WRAM.at((address - 0xC000) & 0x1FFF); //0xE000 to 0xFDFF mirrors 0xC000 to 0xDFFF
+	if (0xC000 <= address && address <= 0xDFFF)
+		data = WRAM.at((address - 0xC000));
+	if (0xE000 <= address && address <= 0xFDFF)
+		data = WRAM.at(((address - 0x2000) - 0xC000)); //Mirror of 0xC000-0xDDFF
 	
 	//HRAM
 	if (0xFF80 <= address && address <= 0xFFEE)
@@ -88,8 +90,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 
 
 	//WRAM
-	if (0xC000 <= address && address <= 0xFDFF)
-		WRAM.at((address - 0xC000) & 0x1FFF) = data; //0xE000 to 0xFDFF mirrors 0xC000 to 0xDFFF
+	if (0xC000 <= address && address <= 0xDFFF)
+		WRAM.at((address - 0xC000)) = data;
+	if(0xE000 <= address && address <= 0xFDFF)
+		WRAM.at(((address - 0x2000) - 0xC000)) = data; //Mirror of 0xC000-0xDDFF
 
 
 	//HRAM
