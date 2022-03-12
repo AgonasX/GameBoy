@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "Bus.h"
 
 class Disassembler
 {
@@ -13,9 +14,14 @@ public:
 private:
 	//Cartridge (ROM)
 	std::shared_ptr<Cartridge> cart;
+	Bus* Busptr = nullptr;
 
 public:
 	void LoadCart(std::shared_ptr<Cartridge> cartridge);
+	void ConnectBus(Bus* bus)
+	{
+		Busptr = bus;
+	}
 
 private:
 	//Instruction maps

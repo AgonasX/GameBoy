@@ -200,7 +200,7 @@ private:
 	int CALLccn16(uint16_t& n16, uint8_t& y) ; //CALL cc,n16
 	int JPHL(); //JP HL
 	int JRe8(int8_t e8); //JR e8
-	int JRcce8(int8_t e8, uint8_t& y); //JR e8
+	int JRcce8(int8_t e8, uint8_t y); //JR e8
 	int JPn16(uint16_t& n16); //JP n16
 	int JPccn16(uint16_t& n16, uint8_t& y); //JP cc,n16
 	int RETcc(uint8_t& y); //RET cc
@@ -218,7 +218,9 @@ private:
 	int LDHLspe8(int8_t e8); //LD HL,SP+e8
 	int LDSPHL(); //LD SP,HL
 	int POPr16(uint8_t& hByte, uint8_t& lByte); //POP r16
+	int POPAF(); //POP AF
 	int PUSHr16(uint8_t& hByte, uint8_t& lByte); //PUSH r16
+	int PUSHAF(); //PUSH AF
 
 	//Miscellaneous Instructions
 	int CCF(); //CCF

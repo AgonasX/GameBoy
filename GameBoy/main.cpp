@@ -79,15 +79,16 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/cpu_instrs.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/01-special.gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff
 		#ifdef DEBUG
 			GB.cpu.initializeInstrMap();
 			disassem.InitializeMaps();
+			disassem.ConnectBus(&GB);
 			disassem.LoadCart(cartridge);
-			disassem.ResizeVectors(20);
+			disassem.ResizeVectors(35);
 		#endif // DEBUG
 
 		return true;
@@ -201,8 +202,8 @@ public:
 			//while ((GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.LCDC.WindowEnable == 0));
 			//while ((GB.ppu.LCDC.PPUEnable == 0));
-			//while (GB.cpu.opcode != 0x17);
-			while (GB.cpu.pc != 0x07F1);
+			//while (GB.cpu.opcode != 0xE6);
+			while (GB.cpu.pc != 0xC31A);
 			
 			//Also clock out remaining ticks for other devices connected to the bus
 			
@@ -369,7 +370,7 @@ void GameBoy::DrawDisassembler(int X, int Y)
 	{
 		DrawString(X + 3, (Y + 3) + 10 * i, disassem.vPC.at(i));
 		DrawString(X + 50, (Y + 3) + 10 * i, disassem.vData.at(i));
-		DrawString(X + 97, (Y + 3) + 10 * i, disassem.vInstrs.at(i));
+		DrawString(X + 90, (Y + 3) + 10 * i, disassem.vInstrs.at(i));
 	}
 }
 #endif // DEBUG

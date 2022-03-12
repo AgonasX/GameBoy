@@ -303,21 +303,21 @@ void Disassembler::Disassemble(uint16_t pc)
 		if (wait == 0)
 		{
 			//Find out how many bytes
-			if (instrMap[cart->cpuRead(pc + i)].find("d8") != std::string::npos)
+			if (instrMap[Busptr->cpuRead(pc + i)].find("d8") != std::string::npos)
 				bytes = 2;
-			else if (instrMap[cart->cpuRead(pc + i)].find("d16") != std::string::npos)
+			else if (instrMap[Busptr->cpuRead(pc + i)].find("d16") != std::string::npos)
 				bytes = 3;
-			else if (instrMap[cart->cpuRead(pc + i)].find("a8") != std::string::npos)
+			else if (instrMap[Busptr->cpuRead(pc + i)].find("a8") != std::string::npos)
 				bytes = 2;
-			else if (instrMap[cart->cpuRead(pc + i)].find("a16") != std::string::npos)
+			else if (instrMap[Busptr->cpuRead(pc + i)].find("a16") != std::string::npos)
 				bytes = 3;
-			else if (instrMap[cart->cpuRead(pc + i)].find("r8") != std::string::npos)
+			else if (instrMap[Busptr->cpuRead(pc + i)].find("r8") != std::string::npos)
 				bytes = 2;
 			else
 				bytes = 1;
 
 			wait = bytes;
-			vInstrs.at(i) = instrMap[cart->cpuRead(pc + i)];
+			vInstrs.at(i) = instrMap[Busptr->cpuRead(pc + i)];
 			bytes--;
 			for(int j = 0; j < bytes;j++)
 			{
@@ -325,7 +325,7 @@ void Disassembler::Disassemble(uint16_t pc)
 			}
 			
 		}
-		vData.at(i) = hex(cart->cpuRead(pc + i), 2);
+		vData.at(i) = hex(Busptr->cpuRead(pc + i), 2);
 		vPC.at(i) = hex(pc + i, 4);
 		wait--;
 		

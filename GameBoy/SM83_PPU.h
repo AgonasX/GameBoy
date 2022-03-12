@@ -23,7 +23,7 @@ private:
 	Bus* bus = nullptr;
 
 
-private:
+public:
 	//PPU read and write.
 	void ppuWrite(uint16_t address, uint8_t data);
 	uint8_t ppuRead(uint16_t address);

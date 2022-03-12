@@ -20,6 +20,13 @@ public:
 	SM83 cpu; //CPU
 	SM83_PPU ppu; //PPU
 
+private:
+	//OAM DMA transfer
+	uint8_t DMAreg = 0x00; //0xFF46 DMA register
+	bool bDMATransfer = false;
+	int DMACycles = 0;
+	void DMA(uint8_t data);
+
 public:
 	//Connect cartridge to the bus
 	void loadCartridge(const std::shared_ptr<Cartridge> cartridge);

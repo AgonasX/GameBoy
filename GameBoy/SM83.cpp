@@ -245,8 +245,8 @@ void SM83::operate(uint8_t opcode)
 			{
 				e8 = read(pc);
 				pc++;
-				Y -= 4;
-				cycles += JRcce8(e8, Y);
+				//Y -= 4;
+				cycles += JRcce8(e8, Y - 4);
 			}
 			switch (Y)
 			{
@@ -349,10 +349,22 @@ void SM83::operate(uint8_t opcode)
 			switch (Q)
 			{
 			case 0:
-				cycles += INCr16(*rp[P]["H"], *rp[P]["L"]);
+				if (P == 3)
+				{
+					sp++;
+					cycles += 2;
+				}
+				else
+					cycles += INCr16(*rp[P]["H"], *rp[P]["L"]);
 				break;
 			case 1:
-				cycles += DECr16(*rp[P]["H"], *rp[P]["L"]);
+				if (P == 3)
+				{
+					sp--;
+					cycles += 2;
+				}
+				else
+					cycles += DECr16(*rp[P]["H"], *rp[P]["L"]);
 				break;
 			}
 			break;
@@ -513,7 +525,10 @@ void SM83::operate(uint8_t opcode)
 			switch (Q)
 			{
 			case 0:
-				cycles += POPr16(*rp2[P]["H"], *rp2[P]["L"]);
+				if (P == 3)
+					cycles += POPAF();
+				else
+					cycles += POPr16(*rp2[P]["H"], *rp2[P]["L"]);
 				break;
 			case 1:
 				switch (P)
@@ -584,14 +599,17 @@ void SM83::operate(uint8_t opcode)
 			break;
 
 		case 5: //x=3, z=5
-			n16 = (read(pc + 1) << 8) | read(pc);
-			pc += 2;
 			switch (Q)
 			{
 			case 0:
-				cycles += PUSHr16(*rp2[P]["H"], *rp2[P]["L"]);
+				if (P == 3) 
+					cycles += PUSHAF();
+				else
+					cycles += PUSHr16(*rp2[P]["H"], *rp2[P]["L"]);
 				break;
 			case 1:
+				n16 = (read(pc + 1) << 8) | read(pc);
+				pc += 2;
 				if (P == 0)
 					cycles += CALLn16(n16);
 				break;
@@ -639,7 +657,16 @@ void SM83::operate(uint8_t opcode)
 		default:
 			std::cout << "Illegal opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
 			break;
+			
 	}
+
+	//HALT bug
+	if (HALTBug == true)
+	{
+		pc = pcBug;
+		HALTBug = false;
+	}
+
 }
 
 //Operate instructions with CB prefix
@@ -733,6 +760,8 @@ void SM83::operatePrefix(uint8_t opcode)
 		std::cout << "Illegal opcode:" << (std::hex) << " 0x" << (int)opcode << std::endl;
 		break;
 	}
+
+
 
 	/*
 	//HALT bug
@@ -935,7 +964,7 @@ int SM83::ADCAn8(uint8_t& n8)
 	if (A > (0xFF - (n8 + getFlag(c)))) setFlag(c, 1);
 	else setFlag(c, 0);
 	setFlag(n, 0);
-	A += (n + getFlag(c));
+	A += (n8 + getFlag(c));
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	return 2;
@@ -994,6 +1023,7 @@ int SM83::ANDAr8(uint8_t& r)
 {
 	setFlag(h, 1);
 	setFlag(n, 0);
+	setFlag(c, 0);
 	A = A & r;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
@@ -1006,6 +1036,7 @@ int SM83::ANDAbHLB()
 	HL = (H << 8) | L;
 	setFlag(h, 1);
 	setFlag(n, 0);
+	setFlag(c, 0);
 	A = A & read(HL);
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
@@ -1017,6 +1048,7 @@ int SM83::ANDAn8(uint8_t& n8)
 {
 	setFlag(h, 1);
 	setFlag(n, 0);
+	setFlag(c, 0);
 	A = A & n8;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
@@ -1252,6 +1284,7 @@ int SM83::SUBAn8(uint8_t n8)
 	else setFlag(h, 0);
 
 	A -= n8;
+
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(n, 1);
@@ -1723,7 +1756,7 @@ int SM83::JRe8(int8_t e8)
 }
 
 //Relative Jump by adding e8 to the current address if condition cc is met.
-int SM83::JRcce8(int8_t e8, uint8_t &y)
+int SM83::JRcce8(int8_t e8, uint8_t y)
 {
 	switch (y)
 	{
@@ -1742,7 +1775,7 @@ int SM83::JRcce8(int8_t e8, uint8_t &y)
 			pc += e8;
 			return 3;
 		}
-		else 
+		else
 			return 2;
 		break;
 	case 2:
@@ -1763,9 +1796,7 @@ int SM83::JRcce8(int8_t e8, uint8_t &y)
 		else
 			return 2;
 		break;
-	default:
-		break;
-	}
+	} 
 }
 
 //Jump to address n16; effectively, store n16 into PC.
@@ -1967,6 +1998,14 @@ int SM83::POPr16(uint8_t& hByte, uint8_t& lByte)
 	return 3;
 }
 
+int SM83::POPAF()
+{
+	F = read(sp) & 0xF0;
+	A = read(sp + 1);
+	sp += 2;
+	return 3;
+}
+
 //Push register r16 into the stack.
 int SM83::PUSHr16(uint8_t& hByte, uint8_t& lByte)
 {
@@ -1974,6 +2013,15 @@ int SM83::PUSHr16(uint8_t& hByte, uint8_t& lByte)
 	write(sp, hByte);
 	sp--;
 	write(sp, lByte);
+	return 4;
+}
+
+int SM83::PUSHAF()
+{
+	sp--;
+	write(sp, A);
+	sp--;
+	write(sp, F & 0xF0);
 	return 4;
 }
 
