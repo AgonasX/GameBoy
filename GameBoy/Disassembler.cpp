@@ -5,6 +5,15 @@ Disassembler::Disassembler(int VectorSize)
 	vInstrs.resize(VectorSize);
 	vPC.resize(VectorSize);
 	vData.resize(VectorSize);
+
+	//Initialize r table
+	r[0] = "B";
+	r[1] = "C";
+	r[2] = "D";
+	r[3] = "E";
+	r[4] = "H";
+	r[5] = "L";
+	r[7] = "A";
 }
 
 Disassembler::~Disassembler()
@@ -14,6 +23,99 @@ Disassembler::~Disassembler()
 void Disassembler::LoadCart(std::shared_ptr<Cartridge> cartridge)
 {
 	this->cart = cartridge;
+}
+
+std::string Disassembler::PrefixInstrs(uint8_t opcode)
+{
+	uint8_t Z = opcode & 0x07;
+	uint8_t Y = (opcode & 0x38) >> 3;
+	uint8_t X = (opcode & 0xC0) >> 6;
+	uint8_t Q = (opcode & (0x01 << 3)) >> 3;
+	uint8_t P = (opcode & 0x30) >> 4;
+
+	switch (X)
+	{
+	case 0:
+		switch (Y)
+		{
+		case 0:
+			if (Z != 6)
+				return "RLC " + r[Z];
+			else
+				return "RLC (HL)";
+			break;
+		case 1:
+			if (Z != 6)
+				return "RRC " + r[Z];
+			else
+				return "RRC (HL)";
+			break;
+		case 2:
+			if (Z != 6)
+				return "RL " + r[Z];
+			else
+				return "RLC (HL)";
+			break;
+		case 3:
+			if (Z != 6)
+				return "RR " + r[Z];
+			else
+				return "RR (HL)";
+			break;
+		case 4:
+			if (Z != 6)
+				return "SLA " + r[Z];
+			else
+				return "SLA (HL)";
+			break;
+		case 5:
+			if (Z != 6)
+				return "SRA " + r[Z];
+			else
+				return "SRA (HL)";
+			break;
+		case 6:
+			if (Z != 6)
+				return "SWAP " + r[Z];
+			else
+				return "SWAP (HL)";
+			break;
+		case 7:
+			if (Z != 6)
+				return "SRL " + r[Z];
+			else
+				return "SRL (HL)";
+			break;
+		}
+		break;
+
+	case 1:
+		if (Z != 6)
+			return "BIT " + std::to_string(Y) + r[Z];
+		else
+			return "BIT " + std::to_string(Y) + "(HL)";
+		break;
+
+	case 2:
+		if (Z != 6)
+			return "RES " + std::to_string(Y) + r[Z];
+		else
+			return "RES " + std::to_string(Y) + "(HL)";
+		break;
+
+	case 3:
+		if (Z != 6)
+			return "SET " + std::to_string(Y) + r[Z];
+		else
+			return "SET " + std::to_string(Y) + "(HL)";
+		break;
+
+	default:
+		
+		break;
+	}
+
+	
 }
 
 void Disassembler::InitializeMaps()
@@ -316,14 +418,25 @@ void Disassembler::Disassemble(uint16_t pc)
 			else
 				bytes = 1;
 
-			wait = bytes;
-			vInstrs.at(i) = instrMap[Busptr->cpuRead(pc + i)];
-			bytes--;
-			for(int j = 0; j < bytes;j++)
+			//Prefix instructions
+			if (instrMap[Busptr->cpuRead(pc + i)].find("PREFIX") != std::string::npos)
 			{
-				if((i + j + 1) < vInstrs.size()) vInstrs.at(j + i + 1) = "Data";
+				wait = 2;
+				vInstrs.at(i) = instrMap[Busptr->cpuRead(pc + i)];
+				if ((i + 1) < vInstrs.size()) vInstrs.at(i + 1) = PrefixInstrs(Busptr->cpuRead(pc + i + 1));
 			}
-			
+
+			else
+			{
+
+				wait = bytes;
+				vInstrs.at(i) = instrMap[Busptr->cpuRead(pc + i)];
+				bytes--;
+				for (int j = 0; j < bytes;j++)
+				{
+					if ((i + j + 1) < vInstrs.size()) vInstrs.at(j + i + 1) = "Data";
+				}
+			}
 		}
 		vData.at(i) = hex(Busptr->cpuRead(pc + i), 2);
 		vPC.at(i) = hex(pc + i, 4);

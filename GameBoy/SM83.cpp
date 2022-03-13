@@ -923,15 +923,25 @@ int SM83::LDAabHLIb()
 //Add the value in r8 plus the carry flag to A.
 int SM83::ADCAr8(uint8_t& r)
 {
-	if ((A & 0x0F) > (0xF - ((r + getFlag(c)) & 0x0F))) setFlag(h, 1);
+	//Check if it overflow with flag first
+	A += getFlag(c);
+	if (getFlag(c) == 1)
+	{
+		if (A == 0x00) setFlag(c, 1);
+		else setFlag(c, 0);
+		if ((A & 0x0F) == 0x0) setFlag(h, 1);
+		else setFlag(h, 0);
+	}
+
+	if ((A & 0x0F) > (0x0F - (r & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
-	if(A > (0xFF - (r + getFlag(c)))) setFlag(c,1);
+	if(A > (0xFF - r)) setFlag(c,1);
 	else setFlag(c, 0);
 
 	setFlag(n, 0);
 
-	A += (r + getFlag(c));
+	A += r;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	return 1;
@@ -941,14 +951,24 @@ int SM83::ADCAr8(uint8_t& r)
 int SM83::ADCAbHLb()
 {
 	HL = (H << 8) | L;
-	if ((A & 0x0F) > (0xF - ((read(HL) + getFlag(c)) & 0x0F))) setFlag(h, 1);
+	
+	if (getFlag(c) == 1)
+	{
+		A += getFlag(c);
+		if (A == 0x00) setFlag(c, 1);
+		else setFlag(c, 0);
+		if ((A & 0x0F) == 0x0) setFlag(h, 1);
+		else setFlag(h, 0);
+	}
+
+	if ((A & 0x0F) > (0x0F - (read(HL) & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
-	if (A > (0xFF - (read(HL) + getFlag(c)))) setFlag(c, 1);
+	if (A > (0xFF - read(HL))) setFlag(c, 1);
 	else setFlag(c, 0);
 
 	setFlag(n, 0);
-	A += (read(HL) + getFlag(c));
+	A += read(HL);
 
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
@@ -958,13 +978,23 @@ int SM83::ADCAbHLb()
 //Add the value n8 plus the carry flag to A.
 int SM83::ADCAn8(uint8_t& n8)
 {
-	if ((A & 0x0F) > (0xF - ((n8 + getFlag(c)) & 0x0F))) setFlag(h, 1);
+	if (getFlag(c) == 1)
+	{
+		A += getFlag(c);
+		if (A == 0x00) setFlag(c, 1);
+		else setFlag(c, 0);
+		if ((A & 0x0F) == 0x0) setFlag(h, 1);
+		else setFlag(h, 0);
+	}
+
+	if ((A & 0x0F) > (0x0F - (n8 & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
-	if (A > (0xFF - (n8 + getFlag(c)))) setFlag(c, 1);
+	if (A > (0xFF - n8)) setFlag(c, 1);
 	else setFlag(c, 0);
+
 	setFlag(n, 0);
-	A += (n8 + getFlag(c));
+	A += n8;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	return 2;
@@ -973,7 +1003,7 @@ int SM83::ADCAn8(uint8_t& n8)
 //Add the value in r8 to A.
 int SM83::ADDAr8(uint8_t& r)
 {
-	if ((A & 0x0F) > (0xF - (r & 0x0F))) setFlag(h, 1);
+	if ((A & 0x0F) > (0x0F - (r & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
 	if (A > (0xFF - r)) setFlag(c, 1);
@@ -990,7 +1020,7 @@ int SM83::ADDAr8(uint8_t& r)
 int SM83::ADDAbHLb()
 {
 	HL = (H << 8) | L;
-	if ((A & 0x0F) > (0xF - (read(HL) & 0x0F))) setFlag(h, 1);
+	if ((A & 0x0F) > (0x0F - (read(HL) & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
 	if (A > (0xFF - read(HL))) setFlag(c, 1);
@@ -1006,15 +1036,18 @@ int SM83::ADDAbHLb()
 //Add the value n8 to A.
 int SM83::ADDAn8(uint8_t& n8)
 {
-	if ((A & 0x0F) > (0xF - (n8 & 0x0F))) setFlag(h, 1);
+	if ((A & 0x0F) > (0x0F - (n8 & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
 	if (A > (0xFF - n8)) setFlag(c, 1);
 	else setFlag(c, 0);
+
 	setFlag(n, 0);
+
 	A += n8;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
+
 	return 2;
 }
 
@@ -1130,7 +1163,7 @@ int SM83::DECbHLb()
 
 int SM83::INCr8(uint8_t& r)
 {
-	if ((r & 0x0F) > (0xF - 0x01)) setFlag(h, 1);
+	if ((r & 0x0F) > (0x0F - 0x01)) setFlag(h, 1);
 	else setFlag(h, 0);
 
 	setFlag(n, 0);
@@ -1197,12 +1230,22 @@ int SM83::ORAn8(uint8_t n8)
 //Subtract the value in r8 and the carry flag from A.
 int SM83::SBCAr8(uint8_t& r)
 {
-	if(A < (r + getFlag(c))) setFlag(c,1);
+	if (getFlag(c) == 1)
+	{
+		A -= getFlag(c);
+		if (A == 0xFF) setFlag(c, 1);
+		else setFlag(c, 0);
+		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
+		else setFlag(h, 0);
+	}
+
+	if(A < r) setFlag(c,1);
 	else setFlag(c, 0);
 
-	if((A & 0x0F) < ((r + getFlag(c)) & 0x0F)) setFlag(h, 1);
+	if((A & 0x0F) < (r & 0x0F)) setFlag(h, 1);
 	else setFlag(h, 0);
-	A -= (r + getFlag(c));
+
+	A -= r;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(n, 1);
@@ -1212,13 +1255,22 @@ int SM83::SBCAr8(uint8_t& r)
 int SM83::SBCAbHLb()
 {
 	HL = (H << 8) | L;
-	if (A < (read(HL) + getFlag(c))) setFlag(c, 1);
+	if (getFlag(c) == 1)
+	{
+		A -= getFlag(c);
+		if (A == 0xFF) setFlag(c, 1);
+		else setFlag(c, 0);
+		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
+		else setFlag(h, 0);
+	}
+
+	if (A < read(HL)) setFlag(c, 1);
 	else setFlag(c, 0);
 
-	if ((A & 0x0F) < ((read(HL) + getFlag(c)) & 0x0F)) setFlag(h, 1);
+	if ((A & 0x0F) < (read(HL) & 0x0F)) setFlag(h, 1);
 	else setFlag(h, 0);
 
-	A -= (read(HL) + getFlag(c));
+	A -= read(HL);
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(n, 1);
@@ -1228,13 +1280,22 @@ int SM83::SBCAbHLb()
 //Subtract the value n8 and the carry flag from A.
 int SM83::SBCAn8(uint8_t n8)
 {
-	if (A < (n8 + getFlag(c))) setFlag(c, 1);
+	if (getFlag(c) == 1)
+	{
+		A -= getFlag(c);
+		if (A == 0xFF) setFlag(c, 1);
+		else setFlag(c, 0);
+		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
+		else setFlag(h, 0);
+	}
+
+	if (A < n8) setFlag(c, 1);
 	else setFlag(c, 0);
 
-	if ((A & 0x0F) < ((n8 + getFlag(c)) & 0x0F)) setFlag(h, 1);
+	if ((A & 0x0F) < (n8 & 0x0F)) setFlag(h, 1);
 	else setFlag(h, 0);
 
-	A -= (n8 + getFlag(c));
+	A -= n8;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(n, 1);
@@ -1921,7 +1982,11 @@ int SM83::ADDHLSP()
 {
 	HL = (H << 8) | L;
 	if (HL > (0xFFFF - sp)) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	if ((HL & 0x0FFF) > (0x0FFF - (sp & 0x0FFF))) setFlag(h, 1);
+	else setFlag(h, 0);
+
 	setFlag(n, 0);
 	HL += sp;
 	H = (HL & 0xFF00) >> 8;
@@ -1932,8 +1997,12 @@ int SM83::ADDHLSP()
 //Add the signed value e8 to SP.
 int SM83::ADDSPe8(int8_t e8)
 {
-	if(((sp & 0x000F) > (0x0F - (e8 & 0x0F)))) setFlag(h,1);
-	if((sp & 0x00FF) > (0xFF - e8)) setFlag(c, 1);
+	if(((sp & 0x000F) > (0x0F - ((uint8_t)e8 & 0x0F)))) setFlag(h,1);
+	else setFlag(h, 0);
+
+	if((sp & 0x00FF) > (0xFF - (uint8_t)e8)) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	setFlag(n, 0);
 	setFlag(z, 0);
 	sp += e8;
@@ -1973,11 +2042,18 @@ int SM83::LDbn16bSP(uint16_t& n16)
 int SM83::LDHLspe8(int8_t e8)
 {
 	HL = (H << 8) | L;
-	if (((sp & 0x000F) > (0x0F - (e8 & 0x0F)))) setFlag(h, 1);
-	if ((sp & 0x00FF) > (0xFF - e8)) setFlag(c, 1);
+	if (((sp & 0x000F) > (0x0F - ((uint8_t)e8 & 0x0F)))) setFlag(h, 1);
+	else setFlag(h, 0);
+
+	if ((sp & 0x00FF) > (0xFF - (uint8_t)e8)) setFlag(c, 1);
+	else setFlag(c, 0);
+
 	setFlag(z, 0);
 	setFlag(n, 0);
 	HL = sp + e8;
+
+	H = (HL & 0xFF00) >> 8;
+	L = (HL & 0x00FF);
 	return 3;
 }
 
@@ -2047,40 +2123,39 @@ int SM83::CPL()
 //Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction.
 int SM83::DAA()
 {
+
+
 	if (getFlag(n) == 0) //Addition
 	{
-		if (getFlag(h) == 1 || ((A & 0x0F) > 0x9)) 
-		{
-			A += 0x06;
-		}
 
-		if (getFlag(c) == 1 || ((A & 0xF0) > 0x90)) 
+		if ((getFlag(c) == 1) || (A > 0x99))
 		{
 			A += 0x60;
 			setFlag(c, 1);
 		}
-		else setFlag(c, 0);
 
+		if ((getFlag(h) == 1)  || ((A & 0x0F) > 0x9)) 
+		{
+			A += 0x06;
+		}
 	}
 	else //Subtraction
 	{
-		if (getFlag(h) == 1 || ((A & 0x0F) > 0x9))
+		if (getFlag(c) == 1)
+		{
+			A -= 0x60;
+		}
+
+		if (getFlag(h) == 1)
 		{
 			A -= 0x06;
 		}
-	
-		if (getFlag(c) == 1 || ((A & 0xF0) > 0x90))
-		{
-			A -= 0x60;
-			setFlag(c, 1);
-		}
-		else setFlag(c, 0);
 	}
 
 	if(A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(h, 0);
-
+	
 
 	return 1;
 }

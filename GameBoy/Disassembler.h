@@ -26,9 +26,11 @@ public:
 private:
 	//Instruction maps
 	std::map<uint8_t, std::string> instrMap;
-	std::map<uint8_t, int> instrMapBytes;
 	int bytes = 0;
 	int wait = 0;
+
+	std::map<uint8_t, std::string> r;
+	std::string PrefixInstrs(uint8_t opcode);
 
 private:
 	//Uint8_t to hex
@@ -39,6 +41,7 @@ private:
 			s[i] = "0123456789ABCDEF"[n & 0xF];
 		return s;
 	};
+
 
 public:
 	//Vectors of strings

@@ -134,12 +134,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 		}
 	}
 
-	else
-	{
-		//HRAM
-		if (0xFF80 <= address && address <= 0xFFEE)
-			cpu.HRAM.at(address - 0xFF80) = data;
-	}
+	//HRAM
+	if (0xFF80 <= address && address <= 0xFFEE)
+		cpu.HRAM.at(address - 0xFF80) = data;
+	
 
 	return true;
 }
