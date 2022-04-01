@@ -787,9 +787,9 @@ int SM83::LDr8r8(uint8_t& r1, uint8_t& r2)
 }
 
 //Load value n8 into register r8.
-int SM83::LDr8n8(uint8_t& r, uint8_t& n)
+int SM83::LDr8n8(uint8_t& r, uint8_t& n8)
 {
-	r = n;
+	r = n8;
 	return 2;
 }
 
@@ -809,9 +809,9 @@ int SM83::LDbHLbr8(uint8_t& r)
 }
 
 //Store value n8 into the byte pointed to by register HL.
-int SM83::LDrbHLbn8(uint8_t& n)
+int SM83::LDrbHLbn8(uint8_t& n8)
 {
-	write((H << 8) | L, n);
+	write((H << 8) | L, n8);
 	return 3;
 }
 
@@ -923,25 +923,25 @@ int SM83::LDAabHLIb()
 //Add the value in r8 plus the carry flag to A.
 int SM83::ADCAr8(uint8_t& r)
 {
-	//Check if it overflow with flag first
-	A += getFlag(c);
-	if (getFlag(c) == 1)
-	{
-		if (A == 0x00) setFlag(c, 1);
-		else setFlag(c, 0);
-		if ((A & 0x0F) == 0x0) setFlag(h, 1);
-		else setFlag(h, 0);
-	}
-
+	//Check if it overflow without flag first
 	if ((A & 0x0F) > (0x0F - (r & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
-	if(A > (0xFF - r)) setFlag(c,1);
+	if (A > (0xFF - r)) setFlag(c, 1);
 	else setFlag(c, 0);
+
+	if (getFlag(c) == 1)
+	{
+		A += getFlag(c);
+		if (A == 0x00) setFlag(c, 1);
+		if ((A & 0x0F) == 0x0) setFlag(h, 1);
+	}
+
+
+	A += r;
 
 	setFlag(n, 0);
 
-	A += r;
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	return 1;
@@ -952,15 +952,6 @@ int SM83::ADCAbHLb()
 {
 	HL = (H << 8) | L;
 	
-	if (getFlag(c) == 1)
-	{
-		A += getFlag(c);
-		if (A == 0x00) setFlag(c, 1);
-		else setFlag(c, 0);
-		if ((A & 0x0F) == 0x0) setFlag(h, 1);
-		else setFlag(h, 0);
-	}
-
 	if ((A & 0x0F) > (0x0F - (read(HL) & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
 
@@ -970,6 +961,16 @@ int SM83::ADCAbHLb()
 	setFlag(n, 0);
 	A += read(HL);
 
+	if (getFlag(c) == 1)
+	{
+		A += getFlag(c);
+		if (A == 0x00) setFlag(c, 1);
+
+		if ((A & 0x0F) == 0x0) setFlag(h, 1);
+		
+	}
+
+
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	return 2;
@@ -978,23 +979,39 @@ int SM83::ADCAbHLb()
 //Add the value n8 plus the carry flag to A.
 int SM83::ADCAn8(uint8_t& n8)
 {
-	if (getFlag(c) == 1)
+	if (getFlag(c) > 0)
 	{
-		A += getFlag(c);
+		A += 1;
 		if (A == 0x00) setFlag(c, 1);
 		else setFlag(c, 0);
-		if ((A & 0x0F) == 0x0) setFlag(h, 1);
+
+		if ((A & 0x0F) == 0x00) setFlag(h, 1);
 		else setFlag(h, 0);
 	}
 
-	if ((A & 0x0F) > (0x0F - (n8 & 0x0F))) setFlag(h, 1);
-	else setFlag(h, 0);
+	else
+	{
+		setFlag(c, 0);
+		setFlag(h, 0);
+	}
 
-	if (A > (0xFF - n8)) setFlag(c, 1);
-	else setFlag(c, 0);
+	//Use temp variables with larger bits to avoid overflow
+	uint16_t A_temp = A + n8;
+
+	//Find overflow from bit 7 and 3 from adding carry
+	uint16_t no_carry_sum = A ^ n8;
+	uint16_t carry_into = A_temp ^ no_carry_sum;
+
+	if ((carry_into & 0x10) > 0) setFlag(h, 1);
+	
+
+	if ((carry_into & 0x100) > 0) setFlag(c, 1);
+	
+
+	A = A + n8;
 
 	setFlag(n, 0);
-	A += n8;
+	
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	return 2;
@@ -1003,9 +1020,10 @@ int SM83::ADCAn8(uint8_t& n8)
 //Add the value in r8 to A.
 int SM83::ADDAr8(uint8_t& r)
 {
+	
 	if ((A & 0x0F) > (0x0F - (r & 0x0F))) setFlag(h, 1);
 	else setFlag(h, 0);
-
+	
 	if (A > (0xFF - r)) setFlag(c, 1);
 	else setFlag(c, 0);
 
@@ -1230,22 +1248,25 @@ int SM83::ORAn8(uint8_t n8)
 //Subtract the value in r8 and the carry flag from A.
 int SM83::SBCAr8(uint8_t& r)
 {
+
+	if (A < r) setFlag(c, 1);
+	else setFlag(c, 0);
+
+	if ((A & 0x0F) < (r & 0x0F)) setFlag(h, 1);
+	else setFlag(h, 0);
+
+	A -= r;
+
 	if (getFlag(c) == 1)
 	{
 		A -= getFlag(c);
 		if (A == 0xFF) setFlag(c, 1);
-		else setFlag(c, 0);
+		
 		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
-		else setFlag(h, 0);
+	
 	}
 
-	if(A < r) setFlag(c,1);
-	else setFlag(c, 0);
-
-	if((A & 0x0F) < (r & 0x0F)) setFlag(h, 1);
-	else setFlag(h, 0);
-
-	A -= r;
+	
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(n, 1);
@@ -1255,14 +1276,6 @@ int SM83::SBCAr8(uint8_t& r)
 int SM83::SBCAbHLb()
 {
 	HL = (H << 8) | L;
-	if (getFlag(c) == 1)
-	{
-		A -= getFlag(c);
-		if (A == 0xFF) setFlag(c, 1);
-		else setFlag(c, 0);
-		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
-		else setFlag(h, 0);
-	}
 
 	if (A < read(HL)) setFlag(c, 1);
 	else setFlag(c, 0);
@@ -1271,6 +1284,16 @@ int SM83::SBCAbHLb()
 	else setFlag(h, 0);
 
 	A -= read(HL);
+
+	if (getFlag(c) == 1)
+	{
+		A -= getFlag(c);
+		if (A == 0xFF) setFlag(c, 1);
+		
+		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
+	}
+
+	
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
 	setFlag(n, 1);
@@ -1280,25 +1303,42 @@ int SM83::SBCAbHLb()
 //Subtract the value n8 and the carry flag from A.
 int SM83::SBCAn8(uint8_t n8)
 {
-	if (getFlag(c) == 1)
+
+	if (getFlag(c) > 0)
 	{
-		A -= getFlag(c);
+		A -= 1;
 		if (A == 0xFF) setFlag(c, 1);
 		else setFlag(c, 0);
+
 		if ((A & 0x0F) == 0x0F) setFlag(h, 1);
 		else setFlag(h, 0);
 	}
 
-	if (A < n8) setFlag(c, 1);
-	else setFlag(c, 0);
+	else
+	{
+		setFlag(c, 0);
+		setFlag(h, 0);
+	}
 
-	if ((A & 0x0F) < (n8 & 0x0F)) setFlag(h, 1);
-	else setFlag(h, 0);
+	//Use temp variables with larger bits to avoid overflow
+	uint16_t A_temp = A - n8;
 
-	A -= n8;
+	//Find borrow from bit 8 and 4
+	uint16_t no_borrow_subtract = A ^ n8;
+	uint16_t borrow_from = A_temp ^ no_borrow_subtract;
+
+	if ((borrow_from & 0x10) > 0) setFlag(h, 1);
+
+
+	if ((borrow_from & 0x100) > 0) setFlag(c, 1);
+
+
+	A = A - n8;
+
+	setFlag(n, 1);
+
 	if (A == 0x00) setFlag(z, 1);
 	else setFlag(z, 0);
-	setFlag(n, 1);
 	return 2;
 }
 

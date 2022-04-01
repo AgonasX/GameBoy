@@ -79,7 +79,7 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/04-op r,imm.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/05-op rp.gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff
@@ -202,7 +202,7 @@ public:
 			//while ((GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.LCDC.WindowEnable == 0));
 			//while ((GB.ppu.LCDC.PPUEnable == 0));
-			while (GB.cpu.opcode != 0xFB);
+			while (GB.cpu.opcode != 0xCE);
 			//while (GB.cpu.pc != 0xC33D);
 			
 			//Also clock out remaining ticks for other devices connected to the bus

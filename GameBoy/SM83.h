@@ -112,10 +112,10 @@ private:
 private:
 	//Load instructions
 	int LDr8r8(uint8_t& r1, uint8_t& r2); //LD r8,r8
-	int LDr8n8(uint8_t& r, uint8_t& n); //LD r8,n8
+	int LDr8n8(uint8_t& r, uint8_t& n8); //LD r8,n8
 	int LDr16n16(uint8_t& lr, uint8_t& hr, uint16_t& n); //LD r16, n16
 	int LDbHLbr8(uint8_t& r); //LD[HL], r8
-	int LDrbHLbn8(uint8_t& n); //LD [HL],n8
+	int LDrbHLbn8(uint8_t& n8); //LD [HL],n8
 	int LDr8bHLb(uint8_t& r); //LD r8,[HL]
 	int LDbr16bA(uint16_t& r); //LD [r16],A
 	int LDbn16bA(uint16_t& n); //LD [n16],A
