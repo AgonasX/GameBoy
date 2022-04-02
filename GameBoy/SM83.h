@@ -131,7 +131,7 @@ private:
 	int LDAabHLIb(); //LD A,[HLI]
 
 	//8-bit Arithmetic and Logic Instructions
-	int ADCAr8(uint8_t& r); //ADC A,r8
+	int ADCAr8(uint8_t r); //ADC A,r8
 	int ADCAbHLb(); //ADC A,[HL]
 	int ADCAn8(uint8_t& n8); //ADC A,n8
 	int ADDAr8(uint8_t& r); //ADD A,r8
@@ -150,7 +150,7 @@ private:
 	int ORAr8(uint8_t& r); //OR A,r8
 	int ORAbHLb(); //OR A,[HL]
 	int ORAn8(uint8_t n8); //OR A,n8
-	int SBCAr8( uint8_t& r); //SBC A,r8
+	int SBCAr8(uint8_t r); //SBC A,r8
 	int SBCAbHLb(); //SBC A,[HL]
 	int SBCAn8(uint8_t n8); //SBC A,n8
 	int SUBAr8(uint8_t& r); //SUB A,r8

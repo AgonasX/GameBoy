@@ -79,7 +79,7 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/05-op rp.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/02-interrupts.gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff
@@ -101,9 +101,9 @@ public:
 			//DEBUG struff
 	#ifdef DEBUG
 			drawInstr(288, 0);
-			DrawTileData(160, 0);
-			DrawTileMap0(0, 192);
-			DrawTileMap1(256, 192);
+			//DrawTileData(160, 0);
+			//DrawTileMap0(0, 192);
+			//DrawTileMap1(256, 192);
 			DrawDisassembler(588, 0);
 	#endif // DEBUG
 
@@ -182,14 +182,10 @@ public:
 		int instr = 10;
 		if (bRun2500)
 		{
-			while (instr > 0)
+			do
 			{
-				do
-				{
-					GB.clock();
-				} while (!GB.cpu.complete());
-				instr--;
-			}
+				GB.clock();
+			} while (!GB.ppu.frameComplete());
 		}
 	
 		//Run to break
