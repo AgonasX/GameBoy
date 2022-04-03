@@ -4,6 +4,7 @@ Bus::Bus()
 {
 	cpu.connectBus(this);
 	ppu.connectBus(this);
+	timer.ConnectToBus(this);
 }
 
 Bus::~Bus()
@@ -74,6 +75,10 @@ uint8_t Bus::cpuRead(uint16_t address)
 	if (address == 0xFF46)
 		data = DMAreg;
 
+	//Timer and Divider registers
+	if (0xFF04 <= address && address <= 0xFF07)
+		data = timer.cpuRead(address);
+
 	//Block access when in DMA transfer except for HRAM
 	if (bDMATransfer)
 		data = 0x00;
@@ -124,6 +129,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 		if (address == 0xFF0F)
 			cpu.IF = data;
 
+		//Timer and Divider registers
+		if (0xFF04 <= address && address <= 0xFF07)
+			timer.cpuWrite(address, data);
+
 		//Direct Memory Access Transfer
 		if (address == 0xFF46)
 		{
@@ -145,7 +154,7 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 //Clock the CPU and PPU 
 void Bus::clock()
 {
-	if((clockTicks & 0x1) == 0) cpu.clock(); //Clock cpu every two ticks
+	cpu.clock(); //Clock cpu 
 
 	//Clock PPU only when enabled
 	//ppu.LCDC.PPUEnable = 1; //Force ppu clock
@@ -153,6 +162,17 @@ void Bus::clock()
 
 	//DMA transfer
 	if (bDMATransfer) DMA(DMAreg);
+
+	//Timers and dividers
+	if ((clockTicks % 256) == 0) timer.ClockDIV();
+	if (timer.TAC.TimerEnable == 1)
+	{
+		if ((TimerTicks % timer.ClockSelect[timer.TAC.InputClockSelect]) == 0) timer.ClockTimer();
+	
+		TimerTicks++;
+	}
+	else
+		TimerTicks = 0;
 
 	clockTicks++;
 }

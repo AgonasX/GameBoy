@@ -202,11 +202,10 @@ void SM83_PPU::clock()
 {
 	LY = scanLine; //Give value to LY register
 
-	if(scanLine == 0) bFrameComplete = false; //Reset frame complete
+	bFrameComplete = false; //Reset frame complete
 
 	//Update the LYC = LY flag
-	if (LY == LYC) STAT.LYFlag = 1;
-	else STAT.LYFlag = 0;
+	STAT.LYFlag = (LY == LYC) ? 1 : 0;
 
 	//LYC = LY stat interrupt:
 	if (!bStatInterruptBlock && STAT.LY == 1 && (dots % 456) == 0)
@@ -315,7 +314,6 @@ void SM83_PPU::Mode1()
 			scanLine = 0;
 			WindowY = 0;
 			LY = 0;
-			dots = 0;
 			bFrameComplete = true;
 		}
 	}
@@ -725,8 +723,6 @@ uint16_t SM83_PPU::getTileMap(uint8_t tileID, uint8_t row, bool bFetchObject)
 			lowAddress = startAddress + (2 * row) + 16 * tileID;
 		else
 			lowAddress = startAddress + (2 * row) + 16 * tileID;
-
-		
 	}
 	else
 	{

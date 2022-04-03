@@ -3,6 +3,7 @@
 #include "SM83.h"
 #include "SM83_PPU.h"
 #include "Cartridge.h"
+#include "Timer.h"
 
 class Bus
 {
@@ -19,6 +20,7 @@ public:
 	std::array<uint8_t, 8192> WRAM = { 0x00 }; //8192kB Work RAM
 	SM83 cpu; //CPU
 	SM83_PPU ppu; //PPU
+	Timer timer; //Timer
 
 private:
 	//OAM DMA transfer
@@ -40,5 +42,6 @@ public:
 	//The master clock
 	void clock();
 	uint8_t clockTicks = 0x00;
+	uint8_t TimerTicks = 0x00;
 };
 

@@ -57,7 +57,6 @@ void MBC_1::MBCWrite(uint16_t address, uint8_t data)
 	if (0x2000 <= address && address <= 0x3FFF)
 	{
 		ROMBankNumber = data;
-		std::cout << "Rombankbumer: " <<(int)data << std::endl;
 	}
 
 	//RAM bank number

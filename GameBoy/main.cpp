@@ -79,7 +79,7 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/02-interrupts.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/PPU_stress_test/m2_win_en_toggle.gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff

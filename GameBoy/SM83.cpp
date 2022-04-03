@@ -130,9 +130,7 @@ void SM83::irHandler()
 			write(sp, pc & 0x00FF);
 			pc = 0x0060;
 		}
-		//TODO: 
-		//Comment out Interrupt handler cycles for now, to be investigated later if this is necessary
-		//cycles += 5;
+		cycles += 5;
 	}
 }
 
