@@ -34,7 +34,7 @@ SM83::SM83()
 	r[7] = &A;
 
 	//Reset vectors
-	pc = 0x0100;
+	pc = 0x0000;
 	sp = 0x0000;
 	A = 0x00; //Accumulator
 	F = 0x00; //Flag register
@@ -89,6 +89,7 @@ void SM83::irHandler()
 			sp--;
 			write(sp, pc & 0x00FF);
 			pc = 0x0040;
+			cycles = 5;
 		}
 		else if (((IF & (0x01 << 1)) > 0) && ((IE & (0x01 << 1)) > 0)) //LCD STAT
 		{
@@ -99,6 +100,7 @@ void SM83::irHandler()
 			sp--;
 			write(sp, pc & 0x00FF);
 			pc = 0x0048;
+			cycles = 5;
 		}
 		else if (((IF & (0x01 << 2)) > 0) && ((IE & (0x01 << 2)) > 0)) //Timer
 		{
@@ -109,6 +111,7 @@ void SM83::irHandler()
 			sp--;
 			write(sp, pc & 0x00FF);
 			pc = 0x0050;
+			cycles = 5;
 		}
 		else if (((IF & (0x01 << 3)) > 0) && ((IE & (0x01 << 3)) > 0)) //Serial
 		{
@@ -119,6 +122,7 @@ void SM83::irHandler()
 			sp--;
 			write(sp, pc & 0x00FF);
 			pc = 0x0058;
+			cycles = 5;
 		}
 		else if (((IF & (0x01 << 4)) > 0) && ((IE & (0x01 << 4)) > 0)) //Joypad
 		{
@@ -129,15 +133,15 @@ void SM83::irHandler()
 			sp--;
 			write(sp, pc & 0x00FF);
 			pc = 0x0060;
+			cycles = 5;
 		}
-		cycles += 5;
 	}
 }
 
 //Do one cpu clock tick.
 void SM83::clock()
 {
-	if (cycles <= 0)
+	if (cycles == 0)
 	{
 		//Handle HALT instruction first
 		if (HALTFlag == true)
@@ -549,10 +553,10 @@ void SM83::operate(uint8_t opcode)
 			break;
 
 		case 2: //x=3, z=2
-			n16 = (read(pc + 1) << 8) | read(pc);
-			pc += 2;
 			if (Y < 4)
 			{
+				n16 = (read(pc + 1) << 8) | read(pc);
+				pc += 2;
 				cycles += JPccn16(n16, Y);
 			}
 			switch (Y)
@@ -561,12 +565,16 @@ void SM83::operate(uint8_t opcode)
 				cycles += LDHbCbA();
 				break;
 			case 5:
+				n16 = (read(pc + 1) << 8) | read(pc);
+				pc += 2;
 				cycles += LDbn16bA(n16);
 				break;
 			case 6:
 				cycles += LDHAbCb();
 				break;
 			case 7:
+				n16 = (read(pc + 1) << 8) | read(pc);
+				pc += 2;
 				cycles += LDAbn16b(n16);
 				break;
 			}
@@ -1970,7 +1978,7 @@ int SM83::JRcce8(int8_t e8, uint8_t y)
 int SM83::JPn16(uint16_t& n16)
 {
 	pc = n16;
-	return 4;
+	return 3; //Jump is 3 cycles? Other sources report 4. TODO: check if this is correct.
 }
 
 //Jump to address n16 if condition cc is met.

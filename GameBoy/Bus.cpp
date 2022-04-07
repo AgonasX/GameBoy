@@ -41,6 +41,10 @@ uint8_t Bus::cpuRead(uint16_t address)
 	//Cartridge
 	if (0x0000 <= address && address <= 0x7FFF)
 		data = cart->cpuRead(address);
+
+	//Boot
+	if (0x0000 <= address && address <= 0x00FF && bBootROM)
+		data = Boot.at(address);
 	
 	if (0xA000 <= address && address <= 0xBFFF) //Cartridge RAM
 		data = cart->cpuRead(address);
@@ -84,7 +88,7 @@ uint8_t Bus::cpuRead(uint16_t address)
 		data = 0x00;
 
 	//HRAM
-	if (0xFF80 <= address && address <= 0xFFEE)
+	if (0xFF80 <= address && address <= 0xFFFE)
 		data = cpu.HRAM.at(address - 0xFF80);
 		
 	return data;
@@ -133,6 +137,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 		if (0xFF04 <= address && address <= 0xFF07)
 			timer.cpuWrite(address, data);
 
+		//Disable DMG Boot ROM
+		if (address == 0xFF50)
+			bBootROM = data > 0x00 ? 0 : 1;
+
 		//Direct Memory Access Transfer
 		if (address == 0xFF46)
 		{
@@ -144,7 +152,7 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 	}
 
 	//HRAM
-	if (0xFF80 <= address && address <= 0xFFEE)
+	if (0xFF80 <= address && address <= 0xFFFE)
 		cpu.HRAM.at(address - 0xFF80) = data;
 	
 
@@ -158,7 +166,8 @@ void Bus::clock()
 
 	//Clock PPU only when enabled
 	//ppu.LCDC.PPUEnable = 1; //Force ppu clock
-	if(ppu.LCDC.PPUEnable == 1) ppu.clock(); //Clock ppu every tick
+	//if(ppu.LCDC.PPUEnable == 1) ppu.clock(); //Clock ppu every tick
+	ppu.clock();
 
 	//DMA transfer
 	if (bDMATransfer) DMA(DMAreg);

@@ -79,7 +79,7 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/PPU_stress_test/m2_win_en_toggle.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/PPU_stress_test/m3_bgp_change_sprites.gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff
@@ -101,9 +101,9 @@ public:
 			//DEBUG struff
 	#ifdef DEBUG
 			drawInstr(288, 0);
-			//DrawTileData(160, 0);
-			//DrawTileMap0(0, 192);
-			//DrawTileMap1(256, 192);
+			DrawTileData(160, 0);
+			DrawTileMap0(0, 192);
+			DrawTileMap1(256, 192);
 			DrawDisassembler(588, 0);
 	#endif // DEBUG
 
@@ -198,8 +198,8 @@ public:
 			//while ((GB.ppu.scanLine != 0x28));
 			//while ((GB.ppu.LCDC.WindowEnable == 0));
 			//while ((GB.ppu.LCDC.PPUEnable == 0));
-			while (GB.cpu.opcode != 0xCE);
-			//while (GB.cpu.pc != 0xC33D);
+			//while (GB.cpu.opcode != 0xCE);
+			while (GB.cpu.pc != 0x0024);
 			
 			//Also clock out remaining ticks for other devices connected to the bus
 			
@@ -347,7 +347,8 @@ void GameBoy::drawInstr(int X, int Y)
 	DrawString(X + 100, Y + 170, "Window Area:" + hex(GB.ppu.LCDC.WindowsTileMapArea, 2));
 	DrawString(X + 100, Y + 180, "STAT = " + bin(GB.ppu.STAT.reg, 8));
 	
-
+	//Clock
+	DrawString(X + 3, Y + 150, "Ticks: $" + hex(GB.clockTicks,2));
 
 	//Flags:
 	DrawString(X + 100, Y + 100, "F: " + bin(GB.cpu.F, 8));
@@ -355,6 +356,9 @@ void GameBoy::drawInstr(int X, int Y)
 	//Stack
 	DrawString(X + 100, Y + 110, "[SP] High: $" + hex(GB.cpu.read(GB.cpu.sp + 1), 2));
 	DrawString(X + 100, Y + 120, "[SP] Low: $" + hex(GB.cpu.read(GB.cpu.sp), 2));
+
+	
+
 
 
 }

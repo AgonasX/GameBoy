@@ -29,6 +29,7 @@ void SM83_PPU::ppuWrite(uint16_t address, uint8_t data)
 	if (0x8000 <= address && address <= 0x9FFF)
 	{
 		VRAM.at(address - 0x8000) = data;
+		//std::cout << "Vram written to at address:" <<(int)address << "value: " << (int)data << std::endl;
 	}
 
 	//OAM
@@ -323,6 +324,17 @@ void SM83_PPU::Mode1()
 //OAM scan
 void SM83_PPU::Mode2()
 {
+	if ((dots % 456) == 0) //Trigger interrupts when entering OAM scan
+	{
+		if (!bStatInterruptBlock && STAT.OAM == 1)
+		{
+			bus->cpu.irqLCDSTAT();
+			bStatInterruptBlock = true;
+		}
+		else
+			bStatInterruptBlock = false;
+	}
+
 	if ((dots % 456) == 79)
 	{
 		
@@ -356,6 +368,15 @@ void SM83_PPU::Mode2()
 		
 		STAT.modeFlag = 3; //Go to mode 3
 		nPauseDots = (SCX & 0x7); //Read SCX to find how many dots to pause 
+
+		//Do the two first step of the fetcher at line 0
+		if (scanLine == 0)
+		{
+			tileRowAddress = getTile(XX, YY, bMapArea);
+			getTileDataLow(tileRowAddress);
+			Fetcher = 2;
+		}
+
 	}
 }
 	
@@ -625,6 +646,9 @@ void SM83_PPU::Mode3()
 					else
 						argb = palettes.at((OBP1.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
 				}
+
+				//White screen when LCD disabled
+				if (LCDC.PPUEnable == 0) argb = 0x00;
 
 				LCDscreen.at(x + 160 * scanLine) = argb;
 				x++; //increment x coordinate
