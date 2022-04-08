@@ -5,6 +5,7 @@ Bus::Bus()
 	cpu.connectBus(this);
 	ppu.connectBus(this);
 	timer.ConnectToBus(this);
+	joypad.connectBus(this);
 }
 
 Bus::~Bus()
@@ -17,10 +18,13 @@ void Bus::DMA(uint8_t data)
 	if (DMACycles == 0)
 	{
 		uint16_t Source = data << 8;
-		for (uint8_t i = 0x00; i < 0xA0; i++)
+		for (uint8_t i = 0x00; i < 0x9F; i++)
 		{
-			ppu.ppuWrite(0xFE + i, cpuRead(Source + i));
+			ppu.ppuWrite(0xFE00 + i, cpuRead(Source + i));
+			//std::cout << (int)(Source + i) << std::endl;
 		}
+
+		
 
 		bDMATransfer = false;
 	}
@@ -83,9 +87,13 @@ uint8_t Bus::cpuRead(uint16_t address)
 	if (0xFF04 <= address && address <= 0xFF07)
 		data = timer.cpuRead(address);
 
+	//JoyPad
+	if (address == 0xFF00)
+		data = joypad.cpuRead();
+
 	//Block access when in DMA transfer except for HRAM
-	if (bDMATransfer)
-		data = 0x00;
+	//if (bDMATransfer)
+		//data = 0x00;
 
 	//HRAM
 	if (0xFF80 <= address && address <= 0xFFFE)
@@ -95,7 +103,7 @@ uint8_t Bus::cpuRead(uint16_t address)
 }
 bool Bus::cpuWrite(uint16_t address, uint8_t data)
 {
-	if (!bDMATransfer) //Block access when in DMA transfer except for HRAM
+	if (!bDMATransfer) //Block access when in DMA transfer except for HRAM and I/O
 	{
 
 		//Cartridge
@@ -121,7 +129,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 
 		//WRAM
 		if (0xC000 <= address && address <= 0xDFFF)
+		{
+			//std::cout << "DATA writen BABY!!! "  << (int)data<< std::endl;
 			WRAM.at((address - 0xC000)) = data;
+		}
 		if (0xE000 <= address && address <= 0xFDFF)
 			WRAM.at(((address - 0x2000) - 0xC000)) = data; //Mirror of 0xC000-0xDDFF
 
@@ -141,15 +152,20 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 		if (address == 0xFF50)
 			bBootROM = data > 0x00 ? 0 : 1;
 
+
 		//Direct Memory Access Transfer
 		if (address == 0xFF46)
 		{
-			std::cout << "DMA time!!!"<<std::endl;
+			//std::cout << "DMA time!!!"<<std::endl;
 			DMAreg = data;
 			bDMATransfer = true;
 			DMACycles = 640;
 		}
 	}
+
+	//JoyPad
+	if (address == 0xFF00)
+		joypad.cpuWrite(data);
 
 	//HRAM
 	if (0xFF80 <= address && address <= 0xFFFE)
@@ -182,6 +198,9 @@ void Bus::clock()
 	}
 	else
 		TimerTicks = 0;
+
+	//Update Pins
+	joypad.UpdatePins();
 
 	clockTicks++;
 }

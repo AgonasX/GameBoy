@@ -207,6 +207,8 @@ void SM83_PPU::clock()
 
 	//Update the LYC = LY flag
 	STAT.LYFlag = (LY == LYC) ? 1 : 0;
+	//if (LY == LYC) STAT.LYFlag = 1;
+	//else STAT.LYFlag = 0;
 
 	//LYC = LY stat interrupt:
 	if (!bStatInterruptBlock && STAT.LY == 1 && (dots % 456) == 0)
@@ -391,7 +393,7 @@ void SM83_PPU::Mode3()
 	if (LCDC.WindowEnable == 1)
 	{
 		//When entering window, destroy the current pixel FIFO
-		if ((WX - 7) == x && WY <= scanLine && !bInWindow)
+		if ((WX - 7) <= x && WY <= scanLine && !bInWindow)
 		{
 			//Destroy current pixel FIFO:
 			BGPixelFIFO = 0x00000000;
@@ -453,9 +455,11 @@ void SM83_PPU::Mode3()
 					//X and Y coordinate equal fetcher's coordinates
 					XX = X;
 					YY = scanLine;
+					SpriteXPos = vOAMObjects.at(nSprites).Xpos;
 
 					//Reset values
-					OBJPixelFIFO = 0;
+					OBJPixelFIFOLatch = 0;
+
 					break;
 				}
 
@@ -531,30 +535,39 @@ void SM83_PPU::Mode3()
 			}
 			else //OBJ fetch and pixel mixing
 			{
-				//Give data to OBJPixelFIFO
+				//Give data to OBJPixelFIFOLatch
 				for (int i = 7; i >= 0; i--)
 				{
 					uint16_t bits = ((TileDataHigh & (1 << i)) << (8 + (7 - i))) | ((TileDataLow & (1 << i)) << (8 + (6 - i)));
 					if(GetOBJFlag(XFlip,vOAMObjects.at(SpriteIndex)) == 0) 
-						OBJPixelFIFO |= (bits >> 2 * (7 - i));
+						OBJPixelFIFOLatch |= (bits >> 2 * (7 - i));
 					else //XFlip
-						OBJPixelFIFO |= (bits >> 2 * i);
+						OBJPixelFIFOLatch |= (bits >> 2 * i);
 				}
 
+				int nEnd = 0;
+				//Throw away sprite pixel which are off screen
+				if (x == 0)
+				{
+					OBJPixelFIFOLatch <<= 2 * (8 - SpriteXPos);
+					nEnd = 8 - SpriteXPos;
+				}
+		
+
 				//Pixel Mixing
-				//Loop through 8 pixels
-				for (int i = 7; i >= 0; i--)
+				//Loop through pixels which are on screen (up to 8);
+				for (int i = 7; i >= nEnd; i--)
 				{
 					//Compare pixels
 					if (GetOBJFlag(OBJPriority, vOAMObjects.at(SpriteIndex)) == 0) //OBJ priority 0, draws over the background
 					{
-						if ((OBJPixelFIFO & (0x3 << 2 * i)) > 0) //Draw OBJ pixel only if OBJ color is not 0 (transparent)
+						if ((OBJPixelFIFOLatch & (0x3 << 2 * i)) > 0) //Draw OBJ pixel only if OBJ color is not 0 (transparent)
 						{
 							if ((PixelFIFO & (1 << i)) == 0) //Check if we already have a object pixel
 							{
-								uint32_t BGPixelFIFOTemp = BGPixelFIFO & ~(0x3 << (2 * i + 16));
-								BGPixelFIFO = (OBJPixelFIFO & (0x3 << 2 * i)) << 16;
-								BGPixelFIFO |= BGPixelFIFOTemp;
+								uint16_t OBJPixelFIFOTemp = OBJPixelFIFO & ~(0x3 << (2 * i));
+								OBJPixelFIFO = (OBJPixelFIFOLatch & (0x3 << 2 * i));
+								OBJPixelFIFO |= OBJPixelFIFOTemp;
 								PixelFIFO |= (1 << i);
 
 								//Palette number
@@ -574,9 +587,9 @@ void SM83_PPU::Mode3()
 						{
 							if ((PixelFIFO & (1 << i)) == 0) //Check if we already have a object pixel
 							{
-								uint32_t BGPixelFIFOTemp = BGPixelFIFO & ~(0x3 << (2 * i + 16));
-								BGPixelFIFO = (OBJPixelFIFO & (0x3 << 2 * i)) << 16;
-								BGPixelFIFO |= BGPixelFIFOTemp;
+								uint16_t OBJPixelFIFOTemp = OBJPixelFIFO & ~(0x3 << (2 * i));
+								OBJPixelFIFO = (OBJPixelFIFOLatch & (0x3 << 2 * i));
+								OBJPixelFIFO |= OBJPixelFIFOTemp;
 								PixelFIFO |= (1 << i);
 
 								//Palette number
@@ -590,6 +603,8 @@ void SM83_PPU::Mode3()
 						}
 					}
 				}
+
+
 				bFetchObj = false;
 				Fetcher = 0; //Go back to get tile
 			}
@@ -625,13 +640,15 @@ void SM83_PPU::Mode3()
 		//nPauseDots = 0;
 		if (!bPauseRender)
 		{
+
 			//At the beginning of a scanline throw away pixel equal to the 3 lower bits of SCX. (If not in Window)
 			if (bInWindow) nPauseDots = 0;
 			if (nPauseDots == 0) {
-				colorIndex = (BGPixelFIFO & 0xC0000000) >> 30;
+				
 				//Background rendering
 				if ((PixelFIFO & 0x80) == 0)
 				{
+					colorIndex = (BGPixelFIFO & 0xC0000000) >> 30;
 					argb = palettes.at((BGP.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
 
 					if (LCDC.BGAndWindowPriority == 0) argb = palettes.at(0); //Background and Window disabled
@@ -639,6 +656,7 @@ void SM83_PPU::Mode3()
 				//Object rendering
 				else
 				{
+					colorIndex = (OBJPixelFIFO & 0xC000) >> 14;
 					//OBP0
 					if ((PaletteNum & 0x80) == 0)
 						argb = palettes.at((OBP0.reg & (0x03 << 2 * colorIndex)) >> 2 * colorIndex);
@@ -648,20 +666,23 @@ void SM83_PPU::Mode3()
 				}
 
 				//White screen when LCD disabled
-				if (LCDC.PPUEnable == 0) argb = 0x00;
+				if (LCDC.PPUEnable == 0) argb = 0xFF0FBC9B;
 
 				LCDscreen.at(x + 160 * scanLine) = argb;
 				x++; //increment x coordinate
+
+				OBJPixelFIFO <<= 2;
+				BGPixelFIFO = BGPixelFIFO << 2;
+				PixelFIFO <<= 1;
+				PaletteNum <<= 1;
+				pixels--; //Decrement pixels
 			}
 			else
 			{
+				BGPixelFIFO = BGPixelFIFO << 2;
+				pixels--; //Decrement pixels
 				nPauseDots--;
 			}
-
-			BGPixelFIFO = BGPixelFIFO << 2;
-			PixelFIFO <<= 1;
-			PaletteNum <<= 1;
-			pixels--; //Decrement pixels
 		}
 	}
 	

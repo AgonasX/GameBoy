@@ -141,7 +141,7 @@ void SM83::irHandler()
 //Do one cpu clock tick.
 void SM83::clock()
 {
-	if (cycles == 0)
+	if (cycles <= 0)
 	{
 		//Handle HALT instruction first
 		if (HALTFlag == true)

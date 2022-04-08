@@ -79,7 +79,7 @@ public:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/PPU_stress_test/m3_bgp_change_sprites.gb");
+		cartridge = std::make_shared<Cartridge>("Roms/Super Mario Land (World).gb");
 		GB.loadCartridge(cartridge);
 
 		//DEBUG struff
@@ -117,8 +117,28 @@ public:
 		if (GetKey(olc::Key::N).bPressed) bDotEmulation = true;
 		if (GetKey(olc::Key::ENTER).bPressed) bRun60fps = true;
 
+		//JoyPad input
+		if (GetKey(olc::Key::UP).bHeld) GB.joypad.PressUp();
+		if (GetKey(olc::Key::DOWN).bHeld) GB.joypad.PressDown();
+		if (GetKey(olc::Key::LEFT).bHeld) GB.joypad.PressLeft();
+		if (GetKey(olc::Key::RIGHT).bHeld) GB.joypad.PressRight();
+		if (GetKey(olc::Key::Z).bHeld) GB.joypad.PressA();
+		if (GetKey(olc::Key::X).bHeld) GB.joypad.PressB();
+		if (GetKey(olc::Key::S).bHeld) GB.joypad.PressStart();
+		if (GetKey(olc::Key::D).bHeld) GB.joypad.PressSelect();
+
+		if (GetKey(olc::Key::UP).bReleased) GB.joypad.ReleaseUp();
+		if (GetKey(olc::Key::DOWN).bReleased) GB.joypad.ReleaseDown();
+		if (GetKey(olc::Key::LEFT).bReleased) GB.joypad.ReleaseLeft();
+		if (GetKey(olc::Key::RIGHT).bReleased) GB.joypad.ReleaseRight();
+		if (GetKey(olc::Key::Z).bReleased) GB.joypad.ReleaseA();
+		if (GetKey(olc::Key::X).bReleased) GB.joypad.ReleaseB();
+		if (GetKey(olc::Key::S).bReleased) GB.joypad.ReleaseStart();
+		if (GetKey(olc::Key::D).bReleased) GB.joypad.ReleaseSelect();
+			
+
 		//Interrupts
-		if (GetKey(olc::Key::S).bPressed) GB.cpu.irqLCDSTAT();
+		//if (GetKey(olc::Key::S).bPressed) GB.cpu.irqLCDSTAT();
 
 		//Run enough clock ticks for one instruction at a time:
 		if (bRunEmulator)
@@ -215,7 +235,6 @@ public:
 		
 		
 		DrawLCDScreen(0, 0);
-
 		return true;
 	}
 };

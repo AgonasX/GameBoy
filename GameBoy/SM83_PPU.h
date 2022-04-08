@@ -61,6 +61,7 @@ public:
 	//Pixel FIFO and screen
 	std::array<uint32_t, 23040> LCDscreen;
 	uint16_t OBJPixelFIFO = 0x0000;
+	uint16_t OBJPixelFIFOLatch = 0x0000;
 	uint8_t PixelFIFO = 0x0000; //Information about whether it is background (0) or object (1) pixels 
 	uint32_t BGPixelFIFO = 0x00000000;
 	uint16_t BGPixelFIFOLatch = 0x0000; //Latch for when BG pixel FIFO needs it
@@ -235,5 +236,6 @@ private:
 	bool bStatInterruptBlock = false; //Variable needed to emulate STAT blocking behaviour
 	int nPauseDots = 0; //Pause cycles for scrolling
 	uint8_t GetOBJFlag(OBJFLAGS f, OAMobject sOAMobject); //Easy way to get OBJ flags
+	uint8_t SpriteXPos = 0x00;
 };
 

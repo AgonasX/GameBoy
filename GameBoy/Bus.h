@@ -4,6 +4,7 @@
 #include "SM83_PPU.h"
 #include "Cartridge.h"
 #include "Timer.h"
+#include "JoyPad.h"
 
 class Bus
 {
@@ -21,6 +22,7 @@ public:
 	SM83 cpu; //CPU
 	SM83_PPU ppu; //PPU
 	Timer timer; //Timer
+	JoyPad joypad; //JoyPad
 
 private:
 	//OAM DMA transfer
