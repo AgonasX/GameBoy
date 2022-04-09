@@ -6,6 +6,7 @@ Bus::Bus()
 	ppu.connectBus(this);
 	timer.ConnectToBus(this);
 	joypad.connectBus(this);
+	apu.connectBus(this);
 }
 
 Bus::~Bus()
@@ -91,6 +92,10 @@ uint8_t Bus::cpuRead(uint16_t address)
 	if (address == 0xFF00)
 		data = joypad.cpuRead();
 
+	//Sound
+	if (0xFF10 <= address && address <= 0xFF26)
+		data = apu.cpuRead(address);
+
 	//Block access when in DMA transfer except for HRAM
 	//if (bDMATransfer)
 		//data = 0x00;
@@ -163,6 +168,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 		}
 	}
 
+	//Sound
+	if (0xFF10 <= address && address <= 0xFF26)
+		apu.cpuWrite(address, data);
+
 	//JoyPad
 	if (address == 0xFF00)
 		joypad.cpuWrite(data);
@@ -176,7 +185,7 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 }
 
 //Clock the CPU and PPU 
-void Bus::clock()
+bool Bus::clock()
 {
 	cpu.clock(); //Clock cpu 
 
@@ -199,10 +208,25 @@ void Bus::clock()
 	else
 		TimerTicks = 0;
 
+	if((clockTicks % 4) == 0) apu.Clock(); // Clock apu every 4 clock ticks
+
+	//bAudioReady gets sets every time we emulated enough time for the audio system to request a new sample
+	bAudioReady = false;
+	dEmulatedTime += dClockPeriod;
+	if (dEmulatedTime >= dAudioSamplePeriod)
+	{
+		bAudioReady = true;
+		dEmulatedTime -= dAudioSamplePeriod;
+		//dAudioSample = apu.GetSample();
+	}
+		
+
 	//Update Pins
 	joypad.UpdatePins();
 
 	clockTicks++;
+
+	return bAudioReady;
 }
 
 

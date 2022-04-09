@@ -48,6 +48,9 @@
     <ClCompile Include="JoyPad.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SM83_APU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Bus.h">
@@ -81,6 +84,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="JoyPad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="olcPGEX_Sound.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SM83_APU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

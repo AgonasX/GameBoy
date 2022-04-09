@@ -5,6 +5,7 @@
 #include "Cartridge.h"
 #include "Timer.h"
 #include "JoyPad.h"
+#include "SM83_APU.h"
 
 class Bus
 {
@@ -23,6 +24,7 @@ public:
 	SM83_PPU ppu; //PPU
 	Timer timer; //Timer
 	JoyPad joypad; //JoyPad
+	SM83_APU apu; //APU
 
 private:
 	//OAM DMA transfer
@@ -30,6 +32,15 @@ private:
 	bool bDMATransfer = false;	
 	int DMACycles = 0;
 	void DMA(uint8_t data);
+
+	//Sounds and variables related to running emulator real time
+public:
+	double dAudioSample = 0;
+private:
+	const double dClockPeriod = 1.0 / 4194304.0;
+	const double dAudioSamplePeriod = 1.0 / 48000.0;
+	double dEmulatedTime = 0.0;
+	bool bAudioReady;
 
 public:
 	//Connect cartridge to the bus
@@ -42,7 +53,7 @@ public:
 
 public:
 	//The master clock
-	void clock();
+	bool clock();
 	uint8_t clockTicks = 0x00;
 	uint8_t TimerTicks = 0x00;
 

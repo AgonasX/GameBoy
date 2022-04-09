@@ -9,6 +9,8 @@
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
+#define OLC_PGEX_SOUND
+#include "olcPGEX_Sound.h"
 
 class GameBoy : public olc::PixelGameEngine
 {
@@ -19,13 +21,17 @@ private:
 	std::shared_ptr<Cartridge> cartridge;
 
 	//Emulation stuff
-	bool bRunEmulator = false;
+	static bool bRunEmulator;
 	bool bStepEmulation = false;
 	bool bDotEmulation = false;
 	bool bRuntoBreak = false;
 	bool bRun2500 = false;
 	bool bRun60fps = false;
 	double fResidualTime = 0;
+
+
+	void EmulateWithoutSound(float fElapsedTime);
+	void EmulateWithSound(float fElapsedTime);
 
 	//Draw pixels
 	void DrawTileData(int X,int Y);
@@ -73,7 +79,54 @@ public:
 
 	}
 
-public:
+private:
+	
+
+	static float SoundOut(int nChannel, float fGlobalTime, float fTimeStep)
+	{
+		
+
+		if (bRunEmulator)
+		{
+			while (!pInstance->GB.clock()) {};
+			return static_cast<float>(pInstance->GB.apu.GetSample(fGlobalTime));
+		}
+
+		//else
+			//return 0;
+		/*
+		double frequency = 440;
+		double dutycycle = 0.5;
+		double amplitude = 1;
+		double pi = 3.14159;
+		double harmonics = 20;
+
+		double a = 0;
+		double b = 0;
+		double p = dutycycle * 2.0 * pi;
+
+		//Approxsin for speed
+		auto approxsin = [](float t)
+		{
+			float j = t * 0.15915;
+			j = j - (int)j;
+			return 20.785 * j * (j - 0.5) * (j - 1.0f);
+		};
+
+		for (double n = 1; n < harmonics; n++)
+		{
+			double c = n * frequency * 2.0 * pi * fGlobalTime;
+			a += -approxsin(c) / n;
+			b += -approxsin(c - p * n) / n;
+		}
+		
+		return static_cast<float>((2.0 * amplitude / pi) * (a - b));
+		*/
+
+	}
+
+	static GameBoy* pInstance;
+
 	bool OnUserCreate() override	
 	{
 		// Called once at the start, so create things here
@@ -81,6 +134,8 @@ public:
 		//Initialize Gameboy and cartridge
 		cartridge = std::make_shared<Cartridge>("Roms/Super Mario Land (World).gb");
 		GB.loadCartridge(cartridge);
+
+		bRunEmulator = true;
 
 		//DEBUG struff
 		#ifdef DEBUG
@@ -91,153 +146,30 @@ public:
 			disassem.ResizeVectors(35);
 		#endif // DEBUG
 
+		//Initialize sound
+		pInstance = this;
+		olc::SOUND::InitialiseAudio(48000, 1, 8, 2048);
+		olc::SOUND::SetUserSynthFunction(SoundOut);
+
+		return true;
+	}
+
+
+	bool OnUserDestroy() override
+	{
+		olc::SOUND::DestroyAudio();
 		return true;
 	}
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
-		Clear(olc::BLACK);
-
-			//DEBUG struff
-	#ifdef DEBUG
-			drawInstr(288, 0);
-			DrawTileData(160, 0);
-			DrawTileMap0(0, 192);
-			DrawTileMap1(256, 192);
-			DrawDisassembler(588, 0);
-	#endif // DEBUG
-
-
-		//User input:
-		if (GetKey(olc::Key::P).bHeld) { bRunEmulator = false; bRun2500 = false; bRun60fps = false; } //Pause emulation
-		if (GetKey(olc::Key::R).bHeld) { bRunEmulator = true; bRun2500 = false; } //Run emulation
-		if (GetKey(olc::Key::T).bHeld) { bRunEmulator = false; bRun2500 = true; } //Run emulation
-		if (GetKey(olc::Key::B).bPressed) bRuntoBreak = true;
-		if (GetKey(olc::Key::SPACE).bPressed) bStepEmulation = true;
-		if (GetKey(olc::Key::N).bPressed) bDotEmulation = true;
-		if (GetKey(olc::Key::ENTER).bPressed) bRun60fps = true;
-
-		//JoyPad input
-		if (GetKey(olc::Key::UP).bHeld) GB.joypad.PressUp();
-		if (GetKey(olc::Key::DOWN).bHeld) GB.joypad.PressDown();
-		if (GetKey(olc::Key::LEFT).bHeld) GB.joypad.PressLeft();
-		if (GetKey(olc::Key::RIGHT).bHeld) GB.joypad.PressRight();
-		if (GetKey(olc::Key::Z).bHeld) GB.joypad.PressA();
-		if (GetKey(olc::Key::X).bHeld) GB.joypad.PressB();
-		if (GetKey(olc::Key::S).bHeld) GB.joypad.PressStart();
-		if (GetKey(olc::Key::D).bHeld) GB.joypad.PressSelect();
-
-		if (GetKey(olc::Key::UP).bReleased) GB.joypad.ReleaseUp();
-		if (GetKey(olc::Key::DOWN).bReleased) GB.joypad.ReleaseDown();
-		if (GetKey(olc::Key::LEFT).bReleased) GB.joypad.ReleaseLeft();
-		if (GetKey(olc::Key::RIGHT).bReleased) GB.joypad.ReleaseRight();
-		if (GetKey(olc::Key::Z).bReleased) GB.joypad.ReleaseA();
-		if (GetKey(olc::Key::X).bReleased) GB.joypad.ReleaseB();
-		if (GetKey(olc::Key::S).bReleased) GB.joypad.ReleaseStart();
-		if (GetKey(olc::Key::D).bReleased) GB.joypad.ReleaseSelect();
-			
-
-		//Interrupts
-		//if (GetKey(olc::Key::S).bPressed) GB.cpu.irqLCDSTAT();
-
-		//Run enough clock ticks for one instruction at a time:
-		if (bRunEmulator)
-		{
-			do
-			{
-				GB.clock();
-			} while (!GB.cpu.complete());
-			//Also clock out remaining ticks for other devices connected to the bus
-			do
-			{
-				GB.clock();
-			} while (GB.cpu.complete());
-				
-		}
-
-		// Run at 60 fps
-		if (bRun60fps)
-		{
-			if (fResidualTime <= 0)
-			{
-				fResidualTime += 1 / 60.f - fElapsedTime;
-
-				do
-				{
-					GB.clock();
-				} while (!GB.ppu.frameComplete());
-			}
-			else
-				fResidualTime -= fElapsedTime;
-		}
-
-		//Step instructions
-		if (!bRunEmulator)
-		{
-			if (bStepEmulation)
-			{
-				do
-				{
-					GB.clock();
-				} while (!GB.cpu.complete());
-				bStepEmulation = false;
-
-
-				//Also clock out remaining ticks for other devices connected to the bus
-				do
-				{
-					GB.clock();
-				} while (GB.cpu.complete());
-			}
-		}
-
-		//One dot at the time
-		if (!bRunEmulator)
-		{
-			if (bDotEmulation) GB.clock();
-			bDotEmulation = false;
-		}
-
-		//Run 2500 instructions at a time
-		int instr = 10;
-		if (bRun2500)
-		{
-			do
-			{
-				GB.clock();
-			} while (!GB.ppu.frameComplete());
-		}
-	
-		//Run to break
-		if (bRuntoBreak)
-		{
-			do
-			{
-				GB.clock();
-			} //while ((GB.ppu.x != 0x58) || (GB.ppu.scanLine != 0x28));
-			//while ((GB.ppu.scanLine != 0x28));
-			//while ((GB.ppu.LCDC.WindowEnable == 0));
-			//while ((GB.ppu.LCDC.PPUEnable == 0));
-			//while (GB.cpu.opcode != 0xCE);
-			while (GB.cpu.pc != 0x0024);
-			
-			//Also clock out remaining ticks for other devices connected to the bus
-			
-			do
-			{
-				GB.clock();
-			} while (GB.cpu.complete());
-			
-			
-			bRuntoBreak = false;
-		}
-
-		
-		
-		DrawLCDScreen(0, 0);
+		EmulateWithSound(fElapsedTime);
 		return true;
 	}
 };
+
+GameBoy* GameBoy::pInstance = nullptr;
+bool GameBoy::bRunEmulator = true;
 
 int main()
 {
@@ -253,6 +185,189 @@ int main()
 	return 0;
 }
 
+void GameBoy::EmulateWithSound(float fElapsedTime)
+{
+	//The Emulation timing is tied to the sound. The Clock function gets called in the SoundOut function.
+
+	Clear(olc::BLACK);
+
+	//DEBUG struff
+#ifdef DEBUG
+	//drawInstr(288, 0);
+	//DrawTileData(160, 0);
+	//DrawTileMap0(0, 192);
+	//DrawTileMap1(256, 192);
+	//DrawDisassembler(588, 0);
+#endif // DEBUG
+
+
+	//User input:
+	if (GetKey(olc::Key::P).bHeld) { bRunEmulator = !bRunEmulator;}
+
+	//JoyPad input
+	if (GetKey(olc::Key::UP).bHeld) GB.joypad.PressUp();
+	if (GetKey(olc::Key::DOWN).bHeld) GB.joypad.PressDown();
+	if (GetKey(olc::Key::LEFT).bHeld) GB.joypad.PressLeft();
+	if (GetKey(olc::Key::RIGHT).bHeld) GB.joypad.PressRight();
+	if (GetKey(olc::Key::Z).bHeld) GB.joypad.PressA();
+	if (GetKey(olc::Key::X).bHeld) GB.joypad.PressB();
+	if (GetKey(olc::Key::S).bHeld) GB.joypad.PressStart();
+	if (GetKey(olc::Key::D).bHeld) GB.joypad.PressSelect();
+
+	if (GetKey(olc::Key::UP).bReleased) GB.joypad.ReleaseUp();
+	if (GetKey(olc::Key::DOWN).bReleased) GB.joypad.ReleaseDown();
+	if (GetKey(olc::Key::LEFT).bReleased) GB.joypad.ReleaseLeft();
+	if (GetKey(olc::Key::RIGHT).bReleased) GB.joypad.ReleaseRight();
+	if (GetKey(olc::Key::Z).bReleased) GB.joypad.ReleaseA();
+	if (GetKey(olc::Key::X).bReleased) GB.joypad.ReleaseB();
+	if (GetKey(olc::Key::S).bReleased) GB.joypad.ReleaseStart();
+	if (GetKey(olc::Key::D).bReleased) GB.joypad.ReleaseSelect();
+
+	DrawLCDScreen(0, 0);
+}
+
+void GameBoy::EmulateWithoutSound(float fElapsedTime)
+{
+	Clear(olc::BLACK);
+
+	//DEBUG struff
+#ifdef DEBUG
+	drawInstr(288, 0);
+	//DrawTileData(160, 0);
+	//DrawTileMap0(0, 192);
+	//DrawTileMap1(256, 192);
+	DrawDisassembler(588, 0);
+#endif // DEBUG
+
+
+	//User input:
+	if (GetKey(olc::Key::P).bHeld) { bRunEmulator = false; bRun2500 = false; bRun60fps = false; } //Pause emulation
+	if (GetKey(olc::Key::R).bHeld) { bRunEmulator = true; bRun2500 = false; } //Run emulation
+	if (GetKey(olc::Key::T).bHeld) { bRunEmulator = false; bRun2500 = true; } //Run emulation
+	if (GetKey(olc::Key::B).bPressed) bRuntoBreak = true;
+	if (GetKey(olc::Key::SPACE).bPressed) bStepEmulation = true;
+	if (GetKey(olc::Key::N).bPressed) bDotEmulation = true;
+	if (GetKey(olc::Key::ENTER).bPressed) bRun60fps = true;
+
+	//JoyPad input
+	if (GetKey(olc::Key::UP).bHeld) GB.joypad.PressUp();
+	if (GetKey(olc::Key::DOWN).bHeld) GB.joypad.PressDown();
+	if (GetKey(olc::Key::LEFT).bHeld) GB.joypad.PressLeft();
+	if (GetKey(olc::Key::RIGHT).bHeld) GB.joypad.PressRight();
+	if (GetKey(olc::Key::Z).bHeld) GB.joypad.PressA();
+	if (GetKey(olc::Key::X).bHeld) GB.joypad.PressB();
+	if (GetKey(olc::Key::S).bHeld) GB.joypad.PressStart();
+	if (GetKey(olc::Key::D).bHeld) GB.joypad.PressSelect();
+
+	if (GetKey(olc::Key::UP).bReleased) GB.joypad.ReleaseUp();
+	if (GetKey(olc::Key::DOWN).bReleased) GB.joypad.ReleaseDown();
+	if (GetKey(olc::Key::LEFT).bReleased) GB.joypad.ReleaseLeft();
+	if (GetKey(olc::Key::RIGHT).bReleased) GB.joypad.ReleaseRight();
+	if (GetKey(olc::Key::Z).bReleased) GB.joypad.ReleaseA();
+	if (GetKey(olc::Key::X).bReleased) GB.joypad.ReleaseB();
+	if (GetKey(olc::Key::S).bReleased) GB.joypad.ReleaseStart();
+	if (GetKey(olc::Key::D).bReleased) GB.joypad.ReleaseSelect();
+
+
+	//Interrupts
+	//if (GetKey(olc::Key::S).bPressed) GB.cpu.irqLCDSTAT();
+
+	//Run enough clock ticks for one instruction at a time:
+	if (bRunEmulator)
+	{
+		do
+		{
+			GB.clock();
+		} while (!GB.cpu.complete());
+		//Also clock out remaining ticks for other devices connected to the bus
+		do
+		{
+			GB.clock();
+		} while (GB.cpu.complete());
+
+	}
+
+	// Run at 60 fps
+	if (bRun60fps)
+	{
+		if (fResidualTime <= 0)
+		{
+			fResidualTime += 1 / 60.f - fElapsedTime;
+
+			do
+			{
+				GB.clock();
+			} while (!GB.ppu.frameComplete());
+		}
+		else
+			fResidualTime -= fElapsedTime;
+	}
+
+	//Step instructions
+	if (!bRunEmulator)
+	{
+		if (bStepEmulation)
+		{
+			do
+			{
+				GB.clock();
+			} while (!GB.cpu.complete());
+			bStepEmulation = false;
+
+
+			//Also clock out remaining ticks for other devices connected to the bus
+			do
+			{
+				GB.clock();
+			} while (GB.cpu.complete());
+		}
+	}
+
+	//One dot at the time
+	if (!bRunEmulator)
+	{
+		if (bDotEmulation) GB.clock();
+		bDotEmulation = false;
+	}
+
+	//Run 2500 instructions at a time
+	int instr = 10;
+	if (bRun2500)
+	{
+		do
+		{
+			GB.clock();
+		} while (!GB.ppu.frameComplete());
+	}
+
+	//Run to break
+	if (bRuntoBreak)
+	{
+		do
+		{
+			GB.clock();
+		} //while ((GB.ppu.x != 0x58) || (GB.ppu.scanLine != 0x28));
+		//while ((GB.ppu.scanLine != 0x28));
+		//while ((GB.ppu.LCDC.WindowEnable == 0));
+		//while ((GB.ppu.LCDC.PPUEnable == 0));
+		//while (GB.cpu.opcode != 0xCE);
+		while (GB.cpu.pc != 0x0024);
+
+		//Also clock out remaining ticks for other devices connected to the bus
+
+		do
+		{
+			GB.clock();
+		} while (GB.cpu.complete());
+
+
+		bRuntoBreak = false;
+	}
+
+
+
+	DrawLCDScreen(0, 0);
+}
 
 void GameBoy::DrawTileData(int X, int Y)
 {
