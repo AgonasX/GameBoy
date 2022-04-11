@@ -34,7 +34,7 @@ SM83::SM83()
 	r[7] = &A;
 
 	//Reset vectors
-	pc = 0x0000;
+	pc = 0x0100;
 	sp = 0x0000;
 	A = 0x00; //Accumulator
 	F = 0x00; //Flag register

@@ -96,6 +96,10 @@ uint8_t Bus::cpuRead(uint16_t address)
 	if (0xFF10 <= address && address <= 0xFF26)
 		data = apu.cpuRead(address);
 
+	//Wave Pattern RAM
+	if (0xFF30 <= address && address <= 0xFF3F)
+		data = apu.cpuRead(address);
+
 	//Block access when in DMA transfer except for HRAM
 	//if (bDMATransfer)
 		//data = 0x00;
@@ -172,6 +176,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 	if (0xFF10 <= address && address <= 0xFF26)
 		apu.cpuWrite(address, data);
 
+	//Wave Pattern RAM
+	if (0xFF30 <= address && address <= 0xFF3F)
+		apu.cpuWrite(address, data);
+
 	//JoyPad
 	if (address == 0xFF00)
 		joypad.cpuWrite(data);
@@ -208,7 +216,9 @@ bool Bus::clock()
 	else
 		TimerTicks = 0;
 
-	if((clockTicks % 4) == 0) apu.Clock(); // Clock apu every 4 clock ticks
+	//if((clockTicks % 4) == 0) apu.Clock(); // Clock apu every 4 clock ticks
+
+	apu.Clock();
 
 	//bAudioReady gets sets every time we emulated enough time for the audio system to request a new sample
 	bAudioReady = false;
