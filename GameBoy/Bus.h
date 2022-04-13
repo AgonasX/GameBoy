@@ -38,7 +38,7 @@ public:
 	double dAudioSample = 0;
 private:
 	const double dClockPeriod = 1.0 / 4194304.0;
-	const double dAudioSamplePeriod = 1.0 / 48000.0;
+	const double dAudioSamplePeriod = 1.0 / 44100.0;
 	double dEmulatedTime = 0.0;
 	bool bAudioReady;
 

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include <string>
 
 class MBC
 {
@@ -14,6 +15,10 @@ public:
 	virtual uint8_t MBCRead(uint16_t address);
 	virtual void MBCWrite(uint16_t address, uint8_t data);
 
+	virtual void SetBatteryStatus(bool b);
+	virtual void LoadCartRAM(std::string filename);
+	virtual void WriteCartRAM();
+
 protected:
 	//RAM and Memory
 	std::shared_ptr<std::vector<uint8_t>> pPGRMemory;
@@ -23,6 +28,9 @@ protected:
 	//Number of banks
 	uint8_t RAMBanks = 0;
 	uint8_t MemoryBanks = 0;
+
+	//Battery
+	bool bBatteryEnabled = false;
 
 public:
 	//Set number of banks

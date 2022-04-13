@@ -132,7 +132,7 @@ private:
 		// Called once at the start, so create things here
 		
 		//Initialize Gameboy and cartridge
-		cartridge = std::make_shared<Cartridge>("Roms/Super Mario Land (World).gb");
+		cartridge = std::make_shared<Cartridge>("Roms/Donkey Kong (World)");
 		GB.loadCartridge(cartridge);
 
 		bRunEmulator = true;
@@ -148,7 +148,7 @@ private:
 
 		//Initialize sound
 		pInstance = this;
-		olc::SOUND::InitialiseAudio(48000, 1, 8, 2048);
+		olc::SOUND::InitialiseAudio(44100, 1, 8, 2048);
 		olc::SOUND::SetUserSynthFunction(SoundOut);
 
 		return true;
@@ -157,7 +157,11 @@ private:
 
 	bool OnUserDestroy() override
 	{
+		//Clean up audio
 		olc::SOUND::DestroyAudio();
+
+		//Save RAM
+		GB.cart->SaveRAM();
 		return true;
 	}
 

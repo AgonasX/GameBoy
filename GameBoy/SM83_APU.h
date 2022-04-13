@@ -61,8 +61,20 @@ private:
 	uint8_t NR42 = 0x00; //FF21 - NR42 - Channel 4 Volume Envelope (R/W)
 	uint8_t NR43 = 0x00; //FF22 - NR43 - Channel 4 Polynomial Counter (R/W)
 	uint8_t NR44 = 0x00; //FF23 - NR44 - Channel 4 Counter/consecutive; Inital (R/W)
+
+	//Sound Control 
+	uint8_t NR50 = 0x00; //FF24 - NR50 - Channel control / ON-OFF / Volume (R/W)
+	uint8_t NR51 = 0x00; //FF25 - NR51 - Selection of Sound output terminal (R/W)
+	uint8_t NR52 = 0x00; //FF26 - NR52 - Sound on/off
+
+
+
 	 
 	//WaveFrom generator, Length Timer, Volume Envelope and Frequency Sweep
+
+	static bool Channel1_Enable; //Static so frequency sweep can access
+	bool Channel2_Enable = false;
+
 	struct WaveForm
 	{
 		double frequency = 0;
@@ -70,6 +82,11 @@ private:
 		double amplitude = 1;
 		double pi = 3.14159;
 		double harmonics = 20;
+
+		uint8_t wave_form = 0x00;
+		uint16_t frequency_timer = 0x00000;
+		uint8_t output = 0x00;
+		uint16_t x = 0x00;
 
 		double sample(double t)
 		{
@@ -94,6 +111,23 @@ private:
 
 			return (2.0 * amplitude / pi) * (a - b);
 		}
+
+		uint8_t clock()
+		{
+			if (frequency_timer > 0)
+				frequency_timer--;
+
+			if (frequency_timer == 0)
+			{
+				frequency_timer = 2048 - x;
+				output = (wave_form & 0x80) >> 7;
+				//Rotate WaveForm left
+				wave_form = ((wave_form & 0x7F) << 1) | ((wave_form & 0x80) >> 7);
+			}
+
+			return output;
+
+		}
 	};
 
 	struct VolumeEnvelope
@@ -105,7 +139,7 @@ private:
 
 		void AdjustVolume()
 		{
-			if (period > 0)
+			if (period != 0)
 			{
 				if (period_timer > 0)
 					period_timer--;
@@ -131,35 +165,68 @@ private:
 		uint8_t sweep_timer = 0x00;
 		uint8_t sweep_period = 0x00;
 		uint8_t sweep_shifts = 0x00;
+		uint16_t frequency = 0x00;
 		uint16_t old_frequency = 0x00;
 		uint16_t new_frequency = 0x00;
 		bool sweep_enable = false;
 		bool is_incrementing = false;
 
-		void sweep()
+		uint16_t calculate_frequency()
 		{
-			if (sweep_enable)
+			uint16_t new_frequency_ = 0x00;
+
+			if (is_incrementing)
 			{
-				if (sweep_timer > 0)
-					sweep_timer--;
-
-				if (sweep_timer == 0)
-				{
-					sweep_timer = sweep_period; //Reload sweep timer
-
-					//Calculate new frequency
-					if (is_incrementing)
-					{
-						new_frequency = old_frequency + (old_frequency >> sweep_shifts);
-					}
-					else
-					{
-						new_frequency = old_frequency - (old_frequency >> sweep_shifts);
-					}
-
-					old_frequency = new_frequency; //Setup old frequency for the next frequency change
-				}
+				new_frequency_ = old_frequency + (old_frequency >> sweep_shifts);
 			}
+			else
+			{
+				new_frequency_ = old_frequency - (old_frequency >> sweep_shifts);
+			}
+
+			if (new_frequency_ > 2047)
+			{
+				Channel1_Enable = false;
+			}
+
+			return new_frequency_;
+		}
+
+		bool sweep()
+		{
+			bool bSweep = false;
+
+			if (sweep_timer > 0)
+				sweep_timer--;
+
+			if (sweep_timer == 0)
+			{
+				//Reload sweep timer
+				if (sweep_period > 0)
+					sweep_timer = sweep_period; 
+				else
+					sweep_timer = 8;
+
+				//Calculate new frequency
+				if (sweep_enable && sweep_period > 0)
+				{
+					new_frequency = calculate_frequency();
+
+					if (new_frequency <= 2047 && sweep_shifts > 0)
+					{
+						frequency = new_frequency;
+						old_frequency = new_frequency;
+						bSweep = true;
+
+						//Overflow check
+						calculate_frequency();
+					}
+
+				}
+					
+			}
+
+			return bSweep;
 		}
 	};
 	
@@ -169,8 +236,8 @@ private:
 		bool wave_enable = false;
 		uint16_t length_timer = 0x00;
 		float output_shift = 0.0;
-		//uint16_t frequency_timer = 0x00;
-		//uint16_t frequency_reload = 0x00;
+		uint16_t frequency_timer = 0x00;
+		uint16_t frequency_reload = 0x00;
 		uint16_t frequency = 0x00;
 		float output = 0.0;
 		uint8_t sample_counter = 0x00;
@@ -188,7 +255,7 @@ private:
 
 		float clock()
 		{
-			/*
+			
 			if (frequency_timer > 0)
 				frequency_timer--;
 
@@ -200,14 +267,15 @@ private:
 				sample_index = (sample_index + 1) % 32;
 			}
 			return output;
-			*/
+			
 
+			/*
 			output = 0.0;
 			if (SampledWave.size() > 0)
 			{
 				output = SampledWave.at(sample_index);
 				sample_index = (sample_index + 1) % SampledWave.size();
-			}
+			}*/
 		}
 
 		void GetWavePattern()
@@ -238,13 +306,13 @@ private:
 			int ticks = 0;
 
 			//Sample at 4194304 Hz, the while loop runs at 4194304 Hz
-			while (SampledWave.size() != (frequency * 64))
+			while (SampledWave.size() != (frequency * 16))
 			{
 
 				//4194304Hz
 				
-				//if((ticks % 4) == 0) SampledWave.push_back(WavePattern.at(pattern_index));
-				SampledWave.push_back(WavePattern.at(pattern_index));
+				if((ticks % 4) == 0) SampledWave.push_back(WavePattern.at(pattern_index));
+				//SampledWave.push_back(WavePattern.at(pattern_index));
 				
 				ticks++;
 
@@ -266,10 +334,10 @@ private:
 	{
 		uint8_t XOR_result = 0x00;
 		uint8_t Length_timer = 0x00;
-		uint16_t frequency_timer = 0x0000;
+		uint32_t frequency_timer = 0x0000;
 		uint8_t shift_amount = 0x00;
 		bool counter_width = false;
-		uint8_t divisor_code = 0x00;
+		uint32_t divisor_code = 0x00;
 		uint16_t LFSR = 0x00; 
 		float output = 0.0;
 		bool enable = false;
@@ -292,17 +360,10 @@ private:
 					LFSR |= XOR_result << 6;
 				}
 
-				output = (float)(~LFSR & 0x0001);
+				output = (float)((~LFSR) & 0x0001);
 			}
 		}
 	};
-
-		
-
-
-
-
-
 
 	uint8_t Channel1_Length_timer = 0x00;
 	uint8_t Channel2_Length_timer = 0x00;
@@ -310,9 +371,11 @@ private:
 	WaveForm Channel1_pulse;
 	WaveForm Channel2_pulse;
 	WaveOut Channel3_waveout;
+	Noise Channel4_noise;
 
 	VolumeEnvelope Channel1_env;
 	VolumeEnvelope Channel2_env;
+	VolumeEnvelope Channel4_env;
 
 	FrequencySweep Channel1_sweep;
 
@@ -320,17 +383,17 @@ private:
 	uint16_t x1 = 0x00;
 	uint16_t x2 = 0x00;
 
-	bool Channel1_Enable = false;
-	bool Channel2_Enable = false;
-
 private:
 	//Outputs
 	float fChannel1_output = 0.0;
 	float fChannel2_output = 0.0;
 	float fChannel3_output = 0.0;
-	//For low pass filter
-	float fChannel3_output_delayed = 0.0; 
-	float fChannel3_output_ = 0.0;
+	float fChannel4_output = 0.0;
+
+	float SO1 = 0.0;
+	float SO2 = 0.0;
+
+	float LeftRightChannel[2] = { 0.0,0.0 };
 
 public:
 	float GetSample(double dGlobalTime);

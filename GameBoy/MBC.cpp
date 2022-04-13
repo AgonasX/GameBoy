@@ -17,6 +17,18 @@ void MBC::MBCWrite(uint16_t address, uint8_t data)
 {
 }
 
+void MBC::SetBatteryStatus(bool b)
+{
+}
+
+void MBC::LoadCartRAM(std::string filename)
+{
+}
+
+void MBC::WriteCartRAM()
+{
+}
+
 void MBC::setRamBanks(uint8_t Banks)
 {
 	RAMBanks = Banks;

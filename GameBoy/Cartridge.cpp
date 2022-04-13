@@ -6,7 +6,9 @@ Cartridge::Cartridge(std::string fileName)
 	vPGRMemory = std::make_shared <std::vector<uint8_t >>();
 	vRAM = std::make_shared <std::vector<uint8_t >>();
 
-	std::ifstream inFile(fileName.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+	filename = fileName;
+
+	std::ifstream inFile((fileName + ".gb").c_str(), std::ios::in | std::ios::binary | std::ios::ate);
 	if (inFile.is_open())
 	{
 		std::streampos size;
@@ -61,6 +63,13 @@ Cartridge::Cartridge(std::string fileName)
 		pMBC->setRamBanks(RAMsize >> 13); //Divide by 8KB to get number of RAM banks
 		pMBC->setMemoryBanks(0x2 << cartridgeType); //Memory banks are powers of 2
 		break;
+	case 0x03: //MBC1 + RAM + battery
+		pMBC = std::make_unique<MBC_1>(vPGRMemory, vRAM);
+		pMBC->setRamBanks(RAMsize >> 13); //Divide by 8KB to get number of RAM banks
+		pMBC->setMemoryBanks(0x2 << cartridgeType); //Memory banks are powers of 2
+		pMBC->SetBatteryStatus(true);
+		pMBC->LoadCartRAM(filename + ".sav");
+		break;
 	}
 
 	//pMBC = std::make_unique<MBC_0>(vPGRMemory, vRAM); //Always no MBC for testing 
@@ -79,6 +88,11 @@ Cartridge::Cartridge(std::string fileName)
 	void Cartridge::cpuWrite(uint16_t address, uint8_t data)
 	{
 		pMBC->MBCWrite(address, data);
+	}
+
+	void Cartridge::SaveRAM()
+	{
+		pMBC->WriteCartRAM();
 	}
 
 

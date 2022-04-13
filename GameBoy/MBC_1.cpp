@@ -11,6 +11,24 @@ MBC_1::~MBC_1()
 {
 }
 
+//Load Cartridge RAM
+void MBC_1::LoadCartRAM(std::string filename)
+{
+	fname = filename;
+	std::fstream inFile(filename.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+	if (inFile.is_open())
+	{
+		//Read RAM
+		std::streampos size;
+		size = inFile.tellg();
+		inFile.seekg(0, std::ios::beg);
+		inFile.read((char*)pRAM->data(), size);
+	}
+
+	inFile.close();
+
+}
+
 //TODO: implement Banking modes
 uint8_t MBC_1::MBCRead(uint16_t address)
 {
@@ -75,5 +93,21 @@ void MBC_1::MBCWrite(uint16_t address, uint8_t data)
 			RAMBankNumber &= 0x3;
 			pRAM->at((address - 0xA000) + RAMBankNumber * 0x1FFF) = data;
 		}
+	}
+}
+
+//Write cart RAM to file if RAM is voilatile (has battery).
+void MBC_1::WriteCartRAM()
+{
+	if (bBatteryEnabled)
+	{
+		std::fstream outFile(fname.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+		if (outFile.is_open())
+		{
+			//Write RAM
+			outFile.write((char*)pRAM->data(), pRAM->size());
+		}
+
+		outFile.close();
 	}
 }

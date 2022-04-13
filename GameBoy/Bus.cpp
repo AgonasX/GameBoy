@@ -94,7 +94,9 @@ uint8_t Bus::cpuRead(uint16_t address)
 
 	//Sound
 	if (0xFF10 <= address && address <= 0xFF26)
+	{
 		data = apu.cpuRead(address);
+	}
 
 	//Wave Pattern RAM
 	if (0xFF30 <= address && address <= 0xFF3F)
@@ -174,7 +176,10 @@ bool Bus::cpuWrite(uint16_t address, uint8_t data)
 
 	//Sound
 	if (0xFF10 <= address && address <= 0xFF26)
+	{
 		apu.cpuWrite(address, data);
+	}
+	
 
 	//Wave Pattern RAM
 	if (0xFF30 <= address && address <= 0xFF3F)
@@ -216,9 +221,9 @@ bool Bus::clock()
 	else
 		TimerTicks = 0;
 
-	//if((clockTicks % 4) == 0) apu.Clock(); // Clock apu every 4 clock ticks
+	if((clockTicks % 4) == 0) apu.Clock(); // Clock apu every 4 clock ticks
 
-	apu.Clock();
+	//apu.Clock();
 
 	//bAudioReady gets sets every time we emulated enough time for the audio system to request a new sample
 	bAudioReady = false;
